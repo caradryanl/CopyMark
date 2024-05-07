@@ -2,10 +2,6 @@
 __pycache__/
 *.py[cod]
 /output/
-/input/
-!/input/example.png
-/models/
-!/models/diffusers/put_diffusers_models_here
 /temp/
 extra_model_paths.yaml
 /.vs
@@ -22,3 +18,10 @@ venv/
 *.parquet
 *.zip
 *.jpg
+
+input/*
+!input/example.png
+models/*
+!models/diffusers/
+models/diffusers/*
+!models/diffusers/put_diffusers_models_here
