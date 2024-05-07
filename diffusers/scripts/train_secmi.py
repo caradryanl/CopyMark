@@ -1,4 +1,6 @@
-
+import sys
+sys.path.append('..')
+sys.path.append('.')
 import tqdm
 from sklearn import metrics
 from datasets import load_from_disk
@@ -9,7 +11,7 @@ import numpy as np
 import json
 import random
 from diffusers import DDIMScheduler
-from diffusers import AutoencoderKL, StableDiffusionPipeline, UNet2DConditionModel
+from diffusers import AutoencoderKL, UNet2DConditionModel
 from transformers import CLIPTextModel, CLIPTokenizer
 from PIL import Image
 from torchvision.datasets import CocoDetection
@@ -17,6 +19,8 @@ import os
 from typing import Iterable, Callable, Optional, Any, Tuple, List
 from omegaconf import OmegaConf
 import argparse
+
+from stable_copyright import SecMIStableDiffusionPipeline
 
 
 def collate_fn(examples):
@@ -69,14 +73,14 @@ class Dataset(torch.utils.data.Dataset):
         self.img_info = []
         with open(caption_path, 'r') as json_file:
             img_info = json.load(json_file)
-        for value in img_info:
+        for value in img_info.values():
             self.img_info.append(value)
 
         self._init_tokenize_captions()
 
 
     def __len__(self):
-        return len(list(self.img_info.keys()))
+        return len(self.img_info)
 
 
     def _init_tokenize_captions(self):
@@ -99,10 +103,10 @@ class Dataset(torch.utils.data.Dataset):
         image = Image.open(path).convert("RGB")
 
         input_id = self._load_input_id(index)
-        caption = self.img_info[index]['capation'][0]
+        caption = self.img_info[index]['caption'][0]
 
         if self.transforms is not None:
-            image, target = StandardTransform(self.transforms, None)(image, target)
+            image, input_id = StandardTransform(self.transforms, None)(image, input_id)
 
         # return image, target
         return {"pixel_values": image, "input_ids": input_id, 'caption': caption}
@@ -130,7 +134,7 @@ def load_dataset(dataset_root, dataset: str='laion-aesthetic-2-5k'):
 
 
 def load_pipeline(ckpt_path, device='cuda:0'):
-    pipe = StableDiffusionPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
+    pipe = SecMIStableDiffusionPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
     pipe.scheduler = DDIMScheduler.from_config(pipe.scheduler.config)
     pipe = pipe.to(device)
     return pipe
@@ -150,8 +154,8 @@ def get_reverse_denoise_results(pipe, dataloader, prefix='member'):
         input_ids = batch["input_ids"].cuda()
         encoder_hidden_states = text_encoder(input_ids)[0]
 
-        image, reverse_results, denoising_results = \
-            pipe(prompt=None, latents=latents, text_embeddings=encoder_hidden_states, guidance_scale=1.0)
+        out = pipe(prompt=None, latents=latents, prompt_embeds=encoder_hidden_states, guidance_scale=1.0)
+        image, reverse_results, denoising_results = out.images, out.reverse_results, out.denoising_results
 
         score = ((denoising_results[-15] - reverse_results[14]) ** 2).sum()
         scores.append(score.reshape(-1, 1))
