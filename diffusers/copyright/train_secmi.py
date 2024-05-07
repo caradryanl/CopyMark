@@ -18,145 +18,12 @@ from typing import Iterable, Callable, Optional, Any, Tuple, List
 from omegaconf import OmegaConf
 import argparse
 
-def tokenize_captions(examples, is_train=True):
-    captions = []
-    for caption in examples[caption_column]:
-        if isinstance(caption, str):
-            captions.append(caption)
-            # for unknown caption
-            # captions.append('None')
-        elif isinstance(caption, (list, np.ndarray)):
-            # take a random caption if there are multiple
-            captions.append(random.choice(caption) if is_train else caption[0])
-            # for unknown caption
-            # captions.append('None')
-        else:
-            raise ValueError(
-                f"Caption column `{caption_column}` should contain either strings or lists of strings."
-            )
-    inputs = tokenizer(
-        captions, max_length=tokenizer.model_max_length, padding="max_length", truncation=True, return_tensors="pt"
-    )
-    return inputs.input_ids
-
-
-def preprocess_train(examples):
-    resolution = 512
-    transform = transforms.Compose([
-        transforms.Resize(resolution, interpolation=transforms.InterpolationMode.BILINEAR),
-        transforms.CenterCrop(resolution),
-        transforms.ToTensor(),
-        transforms.Normalize([0.5], [0.5])
-    ])
-    images = [image.convert("RGB") for image in examples[image_column]]
-    examples["pixel_values"] = [transform(image) for image in images]
-    examples["input_ids"] = tokenize_captions(examples)
-    return examples
-
 
 def collate_fn(examples):
     pixel_values = torch.stack([example["pixel_values"] for example in examples])
     pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
     input_ids = torch.stack([example["input_ids"] for example in examples])
     return {"pixel_values": pixel_values, "input_ids": input_ids}
-
-
-def load_pokemon_datasets(dataset_root):
-    dataset = load_from_disk(os.path.join(dataset_root, 'pokemon'))
-    train_dataset = dataset["train"].with_transform(preprocess_train)
-    test_dataset = dataset["test"].with_transform(preprocess_train)
-    train_dataloader = torch.utils.data.DataLoader(
-        train_dataset, shuffle=True, batch_size=1, collate_fn=collate_fn
-    )
-    test_dataloader = torch.utils.data.DataLoader(
-        test_dataset, shuffle=True, batch_size=1, collate_fn=collate_fn
-    )
-    return train_dataset, test_dataset, train_dataloader, test_dataloader
-
-class CocoCaptionsDict(CocoDetection):
-
-    def __init__(
-            self,
-            split,
-            root: str,
-            transform: Optional[Callable] = None,
-            target_transform: Optional[Callable] = None,
-            transforms: Optional[Callable] = None,
-            tokenizer=None,
-    ) -> None:
-        assert split in ['train', 'val']
-        annFile = os.path.join(root, 'annotations/captions_val2017.json')
-        self.split = split
-        conf = OmegaConf.load(os.path.join(root, 'coco_split.yaml'))
-        root = os.path.join(root, 'val2017')
-        self._train_ids = conf['train']
-        self._val_ids = conf['test']
-        self.tokenizer = tokenizer
-
-        super().__init__(root, annFile, transform, target_transform, transforms)
-
-        if split == 'train':
-            self.ids = [self.ids[i] for i in self._train_ids]
-        elif split == 'val':
-            self.ids = [self.ids[i] for i in self._val_ids]
-        self._init_tokenize_captions()
-
-    def _init_tokenize_captions(self):
-        captions = []
-        for id in self.ids:
-            caption = [ann["caption"] for ann in super()._load_target(id)]
-            # caption = ['None' for ann in super()._load_target(id)]
-            if isinstance(caption, str):
-                captions.append(caption)
-            elif isinstance(caption, (list, np.ndarray)):
-                # take a random caption if there are multiple
-                # captions.append(random.choice(caption) if is_train else caption[0])
-                captions.append(caption[0])
-            else:
-                raise ValueError()
-        inputs = self.tokenizer(
-            captions, max_length=self.tokenizer.model_max_length, padding="max_length", truncation=True,
-            return_tensors="pt"
-        )
-        self.input_ids = inputs.input_ids
-
-    def _load_target(self, id: int):
-        # return super()._load_target(id)
-        return self.input_ids[id]
-
-    def __getitem__(self, index: int):
-        id = self.ids[index]
-        image = self._load_image(id)
-        target = self._load_target(index)
-        caption = super()._load_target(id)
-
-        if self.transforms is not None:
-            image, target = self.transforms(image, target)
-
-        # return image, target
-        return {"pixel_values": image, "input_ids": target, 'caption': caption}
-
-def load_coco_datasets(dataset_root):
-    resolution = 512
-    transform = transforms.Compose(
-        [
-            transforms.Resize(resolution, interpolation=transforms.InterpolationMode.BILINEAR),
-            transforms.CenterCrop(resolution),
-            transforms.ToTensor(),
-            transforms.Normalize([0.5], [0.5]),
-        ]
-    )
-    train_dataset = CocoCaptionsDict(split='train', transform=transform, tokenizer=tokenizer,
-                                     root=os.path.join(dataset_root, 'coco2017val'))
-    train_dataloader = torch.utils.data.DataLoader(
-        train_dataset, shuffle=False, collate_fn=collate_fn, batch_size=1
-    )
-    test_dataset = CocoCaptionsDict(split='val', transform=transform, tokenizer=tokenizer,
-                                    root=os.path.join(dataset_root, 'coco2017val'))
-    test_dataloader = torch.utils.data.DataLoader(
-        test_dataset, shuffle=False, collate_fn=collate_fn, batch_size=1
-    )
-    return train_dataset, test_dataset, train_dataloader, test_dataloader
 
 class StandardTransform:
     def __init__(self, transform: Optional[Callable] = None, target_transform: Optional[Callable] = None) -> None:
@@ -184,32 +51,38 @@ class StandardTransform:
         return "\n".join(body)
 
 
-class LaionSet(torch.utils.data.Dataset):
+class Dataset(torch.utils.data.Dataset):
 
     def __init__(
             self,
-            img_root,
-            listfile_path: str,
+            dataset: str,
+            img_root: str,
             transforms: Optional[Callable] = None,
             tokenizer=None,
     ) -> None:
+        self.dataset = dataset
         self.img_root = img_root
         self.tokenizer = tokenizer
         self.transforms = transforms
+        caption_path = os.path.join(img_root, dataset, 'caption.json')
         # load list file
-        self.img_list = json.load(listfile_path)
+        self.img_info = []
+        with open(caption_path, 'r') as json_file:
+            img_info = json.load(json_file)
+        for value in img_info:
+            self.img_info.append(value)
 
         self._init_tokenize_captions()
 
 
     def __len__(self):
-        return len(self.img_list)
+        return len(list(self.img_info.keys()))
 
 
     def _init_tokenize_captions(self):
         captions = []
-        for img_info in self.img_list:
-            caption = img_info[1]
+        for metadata in self.img_info:
+            caption = metadata['caption'][0]
             captions.append(caption)
 
         inputs = self.tokenizer(
@@ -218,25 +91,24 @@ class LaionSet(torch.utils.data.Dataset):
         )
         self.input_ids = inputs.input_ids
 
-    def _load_target(self, id: int):
+    def _load_input_id(self, id: int):
         return self.input_ids[id]
 
     def __getitem__(self, index: int):
-        path = os.path.join(self.img_root, self.img_list[index][0] + '.jpg')
+        path = os.path.join(self.img_root, self.dataset, 'images', self.img_info[index]['path'])
         image = Image.open(path).convert("RGB")
 
-        target = self._load_target(index)
-        caption = self.img_list[index][1]
+        input_id = self._load_input_id(index)
+        caption = self.img_info[index]['capation'][0]
 
         if self.transforms is not None:
             image, target = StandardTransform(self.transforms, None)(image, target)
 
         # return image, target
-        return {"pixel_values": image, "input_ids": target, 'caption': caption}
+        return {"pixel_values": image, "input_ids": input_id, 'caption': caption}
 
 
-
-def load_laion_dataset(dataset_root):
+def load_dataset(dataset_root, dataset: str='laion-aesthetic-2-5k'):
     resolution = 512
     transform = transforms.Compose(
         [
@@ -246,9 +118,10 @@ def load_laion_dataset(dataset_root):
             transforms.Normalize([0.5], [0.5]),
         ]
     )
-    train_dataset = LaionSet(img_root=os.path.join(dataset_root, 'laion-aesthetic-50k/images'),
-                             listfile_path=os.path.join(dataset_root, 'laion-aesthetic-50k/captions.json'),
-                             transforms=transform, tokenizer=tokenizer)
+    train_dataset = Dataset(
+        dataset=dataset,
+        img_root=dataset_root,
+        transforms=transform, tokenizer=tokenizer)
 
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset, shuffle=False, collate_fn=collate_fn, batch_size=1
@@ -261,30 +134,6 @@ def load_pipeline(ckpt_path, device='cuda:0'):
     pipe.scheduler = DDIMScheduler.from_config(pipe.scheduler.config)
     pipe = pipe.to(device)
     return pipe
-
-def decode_latents(vae, latents):
-    latents = 1 / 0.18215 * latents
-    image = vae.decode(latents).sample
-    image = (image / 2 + 0.5).clamp(0, 1)
-    # we always cast to float32 as this does not cause significant overhead and is compatible with bfloa16
-    image = image.cpu().permute(0, 2, 3, 1).float().numpy()
-    return image
-
-def numpy_to_pil(images):
-    """
-    Convert a numpy image or a batch of images to a PIL image.
-    """
-    if images.ndim == 3:
-        images = images[None, ...]
-    images = (images * 255).round().astype("uint8")
-    if images.shape[-1] == 1:
-        # special case for grayscale (single channel) images
-        pil_images = [Image.fromarray(image.squeeze(), mode="L") for image in images]
-    else:
-        pil_images = [Image.fromarray(image) for image in images]
-
-    return pil_images
-
 
 def get_reverse_denoise_results(pipe, dataloader, prefix='member'):
 
@@ -313,25 +162,23 @@ def get_reverse_denoise_results(pipe, dataloader, prefix='member'):
 
 
 def main(args):
-    if args.dataset == 'laion-aesthetic-50k':
-        _, _, _, test_loader = load_coco_datasets(args.dataset_root)
-        _, train_loader = load_laion_dataset(args.dataset_root)
-    else:
-        raise NotImplementedError
+    _, holdout_loader = load_dataset(args.dataset_root, args.holdout_dataset)
+    _, member_loader = load_dataset(args.dataset_root, args.member_dataset)
 
     pipe = load_pipeline(args.ckpt_path, args.device)
 
-    member_scores = get_reverse_denoise_results(pipe, train_loader)
-    nonmember_scores = get_reverse_denoise_results(pipe, test_loader)
+    member_scores = get_reverse_denoise_results(pipe, member_loader)
+    nonmember_scores = get_reverse_denoise_results(pipe, holdout_loader)
 
     min_score = min(member_scores.min(), nonmember_scores.min())
     max_score = max(member_scores.max(), nonmember_scores.max())
 
     TPR_list = []
     FPR_list = []
+    threshold_list = []
+    output = {}
 
     total = member_scores.size(0) + nonmember_scores.size(0)
-
     for threshold in torch.range(min_score, max_score, (max_score - min_score) / 10000):
         acc = ((member_scores <= threshold).sum() + (nonmember_scores > threshold).sum()) / total
 
@@ -345,11 +192,18 @@ def main(args):
 
         TPR_list.append(TPR.item())
         FPR_list.append(FPR.item())
+        threshold_list.append(threshold.item())
 
         print(f'Score threshold = {threshold:.16f} \t ASR: {acc:.8f} \t TPR: {TPR:.8f} \t FPR: {FPR:.8f}')
     auc = metrics.auc(np.asarray(FPR_list), np.asarray(TPR_list))
     print(f'AUROC: {auc}')
 
+    output['TPR'] = TPR_list
+    output['FPR'] = FPR_list
+    output['threshold'] = threshold_list
+
+    with open(args.output, 'w') as file:
+        json.dump(output, file, indent=4)
 
 
 def fix_seed(seed):
@@ -363,15 +217,14 @@ def fix_seed(seed):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--dataset', default='laion-aesthetic-50k', choices=['laion-aesthetic-50k'])
+    parser.add_argument('--member-dataset', default='laion-aesthetic-2-5k', choices=['laion-aesthetic-2-5k'])
+    parser.add_argument('--holdout-dataset', default='coco2017-val-2-5k', choices=['coco2017-val-2-5k'])
     parser.add_argument('--dataset-root', default='datasets/', type=str)
     parser.add_argument('--seed', type=int, default=10)
     parser.add_argument('--ckpt-path', type=str, default='../models/diffusers/stable-diffusion-v1-5/')
     parser.add_argument('--device', type=str, default='cuda')
+    parser.add_argument('--output', type=str, default='outputs/secmi.json')
     args = parser.parse_args()
-
-    image_column = 'image'
-    caption_column = 'text'
 
     tokenizer = CLIPTokenizer.from_pretrained(
         args.ckpt_path, subfolder="tokenizer", revision=None
