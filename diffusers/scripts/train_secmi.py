@@ -123,7 +123,7 @@ def load_dataset(dataset_root, dataset: str='laion-aesthetic-2-5k'):
         transforms=transform, tokenizer=tokenizer)
 
     train_dataloader = torch.utils.data.DataLoader(
-        train_dataset, shuffle=False, collate_fn=collate_fn, batch_size=1
+        train_dataset, shuffle=False, collate_fn=collate_fn, batch_size=4
     )
     return train_dataset, train_dataloader
 
@@ -138,7 +138,7 @@ def get_reverse_denoise_results(pipe, dataloader, prefix='member'):
 
     weight_dtype = torch.float32
     mean_l2 = 0
-    scores = []
+    scores_50_step, scores_all_steps = [], []
     for batch_idx, batch in enumerate(tqdm.tqdm(dataloader)):
         # Convert images to latent space
         pixel_values = batch["pixel_values"].to(weight_dtype)
@@ -152,22 +152,23 @@ def get_reverse_denoise_results(pipe, dataloader, prefix='member'):
         out = pipe(prompt=None, latents=latents, prompt_embeds=encoder_hidden_states, guidance_scale=1.0, num_inference_steps=100)
         image, posterior_results, denoising_results = out.images, out.posterior_results, out.denoising_results
 
-        score = ((denoising_results[14] - posterior_results[14]) ** 2).sum()
-        scores.append(score.reshape(-1, 1))
-        mean_l2 += score
+        # print(f'posterior {posterior_results[0].shape}')
+
+        for idx in range(posterior_results[0].shape[0]):
+            score_50_step = ((denoising_results[14][idx, ...] - posterior_results[14][idx, ...]) ** 2).sum()
+            score_all_step = 0.0
+            for i in range(len(denoising_results)):
+                score_all_step += ((denoising_results[i][idx, ...] - posterior_results[i][idx, ...]) ** 2).sum()
+
+            scores_50_step.append(score_50_step.reshape(-1, 1))
+            scores_all_steps.append(score_all_step.reshape(-1, 1))
+        
+        mean_l2 += score_50_step
         print(f'[{batch_idx}/{len(dataloader)}] mean l2-sum: {mean_l2 / (batch_idx + 1):.8f}')
 
-    return torch.concat(scores).reshape(-1)
+    return torch.concat(scores_50_step).reshape(-1), torch.concat(scores_all_steps).reshape(-1)
 
-
-def main(args):
-    _, holdout_loader = load_dataset(args.dataset_root, args.holdout_dataset)
-    _, member_loader = load_dataset(args.dataset_root, args.member_dataset)
-
-    pipe = load_pipeline(args.ckpt_path, args.device)
-
-    member_scores = get_reverse_denoise_results(pipe, member_loader)
-    nonmember_scores = get_reverse_denoise_results(pipe, holdout_loader)
+def benchmark(member_scores, nonmember_scores, experiment, output_path):
 
     min_score = min(member_scores.min(), nonmember_scores.min())
     max_score = max(member_scores.max(), nonmember_scores.max())
@@ -201,8 +202,24 @@ def main(args):
     output['FPR'] = FPR_list
     output['threshold'] = threshold_list
 
-    with open(args.output, 'w') as file:
+    with open(output_path + experiment + '_result.json', 'w') as file:
         json.dump(output, file, indent=4)
+
+def main(args):
+    _, holdout_loader = load_dataset(args.dataset_root, args.holdout_dataset)
+    _, member_loader = load_dataset(args.dataset_root, args.member_dataset)
+
+    pipe = load_pipeline(args.ckpt_path, args.device)
+
+    member_scores_50th_step, member_scores_all_steps = get_reverse_denoise_results(pipe, member_loader)
+    nonmember_scores_50th_step, nonmember_scores_all_steps = get_reverse_denoise_results(pipe, holdout_loader)
+
+    torch.save(member_scores_50th_step, args.output + 'member_scores_50th_step.pth')
+    torch.save(member_scores_all_steps, args.output + 'member_scores_all_steps.pth')
+    torch.save(nonmember_scores_50th_step, args.output + 'nonmember_scores_50th_step.pth')
+    torch.save(nonmember_scores_all_steps, args.output + 'nonmember_scores_all_steps.pth')
+
+    
 
 
 def fix_seed(seed):
@@ -222,7 +239,7 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=10)
     parser.add_argument('--ckpt-path', type=str, default='../models/diffusers/stable-diffusion-v1-5/')
     parser.add_argument('--device', type=str, default='cuda')
-    parser.add_argument('--output', type=str, default='outputs/secmi.json')
+    parser.add_argument('--output', type=str, default='outputs/')
     args = parser.parse_args()
 
     tokenizer = CLIPTokenizer.from_pretrained(

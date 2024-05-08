@@ -289,7 +289,7 @@ class SecMIStableDiffusionPipeline(
             ).to(device=device, dtype=latents.dtype)
 
         # get [x_201, x_181, ..., x_1]
-        print(timesteps)
+        # print(timesteps)
         posterior_results = []
         original_latents = latents.detach().clone()
         posterior_latents = original_latents
