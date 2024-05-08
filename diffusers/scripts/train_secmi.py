@@ -11,7 +11,7 @@ import os
 import argparse
 
 from stable_copyright import SecMIStableDiffusionPipeline, SecMIDDIMScheduler
-from stable_copyright import load_dataset
+from stable_copyright import load_dataset, benchmark
 
 
 def load_pipeline(ckpt_path, device='cuda:0'):
@@ -46,8 +46,8 @@ def get_reverse_denoise_results(pipe, dataloader, device, prefix='member'):
         mean_l2 += score_50_step
         print(f'[{batch_idx}/{len(dataloader)}] mean l2-sum: {mean_l2 / (batch_idx + 1):.8f}')
 
-        # if batch_idx > 0:
-        #     break
+        if batch_idx > 0:
+            break
 
     return torch.stack(scores_50_step, dim=0), torch.stack(scores_all_steps, dim=0)
 
@@ -71,42 +71,6 @@ def compute_corr_score(member_scores, nonmember_scores):
 
     return member_scores, nonmember_scores
 
-def benchmark(member_scores, nonmember_scores, experiment, output_path):
-
-    min_score = min(member_scores.min(), nonmember_scores.min())
-    max_score = max(member_scores.max(), nonmember_scores.max())
-
-    TPR_list = []
-    FPR_list = []
-    threshold_list = []
-    output = {}
-
-    total = member_scores.size(0) + nonmember_scores.size(0)
-    for threshold in torch.range(min_score, max_score, (max_score - min_score) / 10000):
-        acc = ((member_scores <= threshold).sum() + (nonmember_scores > threshold).sum()) / total
-
-        TP = (member_scores <= threshold).sum()
-        TN = (nonmember_scores > threshold).sum()
-        FP = (nonmember_scores <= threshold).sum()
-        FN = (member_scores > threshold).sum()
-
-        TPR = TP / (TP + FN)
-        FPR = FP / (FP + TN)
-
-        TPR_list.append(TPR.item())
-        FPR_list.append(FPR.item())
-        threshold_list.append(threshold.item())
-
-        # print(f'Score threshold = {threshold:.16f} \t ASR: {acc:.8f} \t TPR: {TPR:.8f} \t FPR: {FPR:.8f}')
-    auc = metrics.auc(np.asarray(FPR_list), np.asarray(TPR_list))
-    print(f'AUROC: {auc}')
-
-    output['TPR'] = TPR_list
-    output['FPR'] = FPR_list
-    output['threshold'] = threshold_list
-
-    with open(output_path + experiment + '_result.json', 'w') as file:
-        json.dump(output, file, indent=4)
 
 def main(args):
     _, holdout_loader = load_dataset(args.dataset_root, args.ckpt_path, args.holdout_dataset, args.batch_size)

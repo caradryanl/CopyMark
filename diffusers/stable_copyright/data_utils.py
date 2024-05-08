@@ -2,11 +2,67 @@ import torch
 from torchvision import transforms
 from transformers import CLIPTokenizer
 
+from sklearn import metrics
+import torch
+import numpy as np
 import json
 from PIL import Image
 import os
 from typing import Callable, Optional, Any, Tuple, List
 
+def benchmark(member_scores, nonmember_scores, experiment, output_path):
+
+    min_score = min(member_scores.min(), nonmember_scores.min())
+    max_score = max(member_scores.max(), nonmember_scores.max())
+
+    TPR_list = []
+    FPR_list = []
+    threshold_list = []
+    output = {}
+
+    best_TPR_at_1_FPR, best_TPR_at_01_FPR = 0.0, 0.0
+    best_threshold_at_1_FPR, best_threshold_at_01_FPR = 0.0, 0.0
+
+    total = member_scores.size(0) + nonmember_scores.size(0)
+    for threshold in torch.range(min_score, max_score, (max_score - min_score) / 10000):
+        acc = ((member_scores <= threshold).sum() + (nonmember_scores > threshold).sum()) / total
+
+        TP = (member_scores <= threshold).sum()
+        TN = (nonmember_scores > threshold).sum()
+        FP = (nonmember_scores <= threshold).sum()
+        FN = (member_scores > threshold).sum()
+
+        TPR = TP / (TP + FN)
+        FPR = FP / (FP + TN)
+
+        TPR_list.append(TPR.item())
+        FPR_list.append(FPR.item())
+        threshold_list.append(threshold.item())
+
+        if FPR <= 0.01 and TPR > best_TPR_at_1_FPR:
+            best_TPR_at_1_FPR = TPR.item()
+            best_threshold_at_1_FPR = threshold.item()
+        if FPR <= 0.001 and TPR > best_TPR_at_01_FPR:
+            best_TPR_at_01_FPR = TPR.item()
+            best_threshold_at_01_FPR = threshold.item()
+
+        # print(f'Score threshold = {threshold:.16f} \t ASR: {acc:.8f} \t TPR: {TPR:.8f} \t FPR: {FPR:.8f}')
+    auc = metrics.auc(np.asarray(FPR_list), np.asarray(TPR_list))
+    print(f'AUROC: {auc}')
+    print(f'best_TPR_at_1_FPR: {best_TPR_at_1_FPR}, best_threshold_at_1_FPR: {best_threshold_at_1_FPR}')
+    print(f'best_TPR_at_01_FPR: {best_TPR_at_01_FPR}, best_threshold_at_01_FPR: {best_threshold_at_01_FPR}')
+
+    output['AUROC'] = auc
+    output['best_TPR_at_1_FPR'] = best_TPR_at_1_FPR
+    output['best_threshold_at_1_FPR'] = best_threshold_at_1_FPR
+    output['best_TPR_at_01_FPR'] = best_TPR_at_01_FPR
+    output['best_threshold_at_01_FPR'] = best_threshold_at_01_FPR
+    output['TPR'] = TPR_list
+    output['FPR'] = FPR_list
+    output['threshold'] = threshold_list
+
+    with open(output_path + experiment + '_result.json', 'w') as file:
+        json.dump(output, file, indent=4)
 
 def collate_fn(examples):
     pixel_values = torch.stack([example["pixel_values"] for example in examples])
