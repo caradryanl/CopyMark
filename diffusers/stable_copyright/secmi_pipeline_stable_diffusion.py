@@ -46,6 +46,19 @@ class SecMIStableDiffusionPipelineOutput(BaseOutput):
 class SecMIStableDiffusionPipeline(
     StableDiffusionPipeline
 ):
+    @torch.no_grad()
+    def prepare_inputs(self, batch, weight_dtype, device):
+        pixel_values, input_ids = batch["pixel_values"].to(weight_dtype), batch["input_ids"]
+        if device == 'cuda':
+            pixel_values, input_ids = pixel_values.cuda(), input_ids.cuda()
+
+        latents = self.vae.encode(pixel_values).latent_dist.sample()
+        latents = latents * 0.18215
+        encoder_hidden_states = self.text_encoder(input_ids)[0]
+
+        return latents, encoder_hidden_states
+
+
     # borrow from Image2Image
     def get_timesteps(self, num_inference_steps, strength, device):
         # get the original timestep using init_timestep
@@ -292,10 +305,9 @@ class SecMIStableDiffusionPipeline(
         # print(timesteps)
         posterior_results = []
         original_latents = latents.detach().clone()
-        posterior_latents = original_latents
         for i, t in enumerate(timesteps): # from t_max to t_min
-            noise = randn_tensor(posterior_latents.shape, generator=generator, device=device, dtype=posterior_latents.dtype)
-            posterior_latents = self.scheduler.scale_model_input(posterior_latents, t)
+            noise = randn_tensor(original_latents.shape, generator=generator, device=device, dtype=original_latents.dtype)
+            posterior_latents = self.scheduler.scale_model_input(original_latents, t)
             posterior_latents = self.scheduler.add_noise(posterior_latents, noise, t)
             posterior_results.append(posterior_latents.detach().clone())
             # print(f"{t} timestep posterior: {torch.sum(posterior_latents)}")

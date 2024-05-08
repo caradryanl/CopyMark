@@ -17,6 +17,7 @@ kornia>=0.7.1
 # by diffusers
 diffusers
 accelerate
+xformers
 
 # by secmi: https://github.com/jinhaoduan/SecMI-LDM
 omegaconf

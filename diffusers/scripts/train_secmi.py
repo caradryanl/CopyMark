@@ -8,11 +8,10 @@ import torch
 import numpy as np
 import json
 import random
-from diffusers import AutoencoderKL, UNet2DConditionModel
-from transformers import CLIPTextModel, CLIPTokenizer
+from transformers import CLIPTokenizer
 from PIL import Image
 import os
-from typing import Iterable, Callable, Optional, Any, Tuple, List
+from typing import Callable, Optional, Any, Tuple, List
 import argparse
 
 from stable_copyright import SecMIStableDiffusionPipeline, SecMIDDIMScheduler
@@ -107,7 +106,7 @@ class Dataset(torch.utils.data.Dataset):
         return {"pixel_values": image, "input_ids": input_id, 'caption': caption}
 
 
-def load_dataset(dataset_root, dataset: str='laion-aesthetic-2-5k'):
+def load_dataset(dataset_root, dataset: str='laion-aesthetic-2-5k', batch_size: int=6):
     resolution = 512
     transform = transforms.Compose(
         [
@@ -123,7 +122,7 @@ def load_dataset(dataset_root, dataset: str='laion-aesthetic-2-5k'):
         transforms=transform, tokenizer=tokenizer)
 
     train_dataloader = torch.utils.data.DataLoader(
-        train_dataset, shuffle=False, collate_fn=collate_fn, batch_size=4
+        train_dataset, shuffle=False, collate_fn=collate_fn, batch_size=batch_size
     )
     return train_dataset, train_dataloader
 
@@ -134,39 +133,68 @@ def load_pipeline(ckpt_path, device='cuda:0'):
     pipe = pipe.to(device)
     return pipe
 
-def get_reverse_denoise_results(pipe, dataloader, prefix='member'):
+def pipe_sampling(pipe, latents, encoder_hidden_states):
+    out = pipe(prompt=None, latents=latents, prompt_embeds=encoder_hidden_states, guidance_scale=1.0, num_inference_steps=100)
+    image, posterior_results, denoising_results = out.images, out.posterior_results, out.denoising_results
+
+    return posterior_results, denoising_results
+
+def pipe_sampling_ddp(pipe, latents, encoder_hidden_states):
+    out = pipe(prompt=None, latents=latents, prompt_embeds=encoder_hidden_states, guidance_scale=1.0, num_inference_steps=100)
+    image, posterior_results, denoising_results = out.images, out.posterior_results, out.denoising_results
+
+    return posterior_results, denoising_results
+
+def get_reverse_denoise_results(pipe, dataloader, device, prefix='member'):
 
     weight_dtype = torch.float32
     mean_l2 = 0
     scores_50_step, scores_all_steps = [], []
     for batch_idx, batch in enumerate(tqdm.tqdm(dataloader)):
-        # Convert images to latent space
-        pixel_values = batch["pixel_values"].to(weight_dtype)
-        pixel_values = pixel_values.cuda()
-        latents = vae.encode(pixel_values).latent_dist.sample()
-        latents = latents * 0.18215
-        # Get the text embedding for conditioning
-        input_ids = batch["input_ids"].cuda()
-        encoder_hidden_states = text_encoder(input_ids)[0]
-
+        latents, encoder_hidden_states = pipe.prepare_inputs(batch, weight_dtype, device)
         out = pipe(prompt=None, latents=latents, prompt_embeds=encoder_hidden_states, guidance_scale=1.0, num_inference_steps=100)
-        image, posterior_results, denoising_results = out.images, out.posterior_results, out.denoising_results
+        _, posterior_results, denoising_results = out.images, out.posterior_results, out.denoising_results
 
         # print(f'posterior {posterior_results[0].shape}')
 
         for idx in range(posterior_results[0].shape[0]):
             score_50_step = ((denoising_results[14][idx, ...] - posterior_results[14][idx, ...]) ** 2).sum()
-            score_all_step = 0.0
+            # score_50_step.shape: torch.Size([])
+            score_all_step = []
             for i in range(len(denoising_results)):
-                score_all_step += ((denoising_results[i][idx, ...] - posterior_results[i][idx, ...]) ** 2).sum()
+                score_all_step.append(((denoising_results[i][idx, ...] - posterior_results[i][idx, ...]) ** 2).sum())
+            score_all_step = torch.stack(score_all_step, dim=0) # torch.Size([20])
 
-            scores_50_step.append(score_50_step.reshape(-1, 1))
-            scores_all_steps.append(score_all_step.reshape(-1, 1))
+            scores_50_step.append(score_50_step.reshape(-1).detach().clone().cpu())    # List[torch.Size([1])]
+            scores_all_steps.append(score_all_step.reshape(-1).detach().clone().cpu()) # List[torch.Size([20])]
         
         mean_l2 += score_50_step
         print(f'[{batch_idx}/{len(dataloader)}] mean l2-sum: {mean_l2 / (batch_idx + 1):.8f}')
 
-    return torch.concat(scores_50_step).reshape(-1), torch.concat(scores_all_steps).reshape(-1)
+        if batch_idx > 0:
+            break
+
+    return torch.stack(scores_50_step, dim=0), torch.stack(scores_all_steps, dim=0)
+
+def get_reverse_denoise_results_ddp(pipe, dataloader, prefix='member'):
+    '''
+        TODO:
+        Implement the ddp sampling
+    '''
+    return None, None
+
+def compute_corr_score(member_scores, nonmember_scores):
+    '''
+        member_scores: [N, S]
+        nonmember_scores: [N, S]
+    '''
+    all_scores = torch.cat([member_scores, nonmember_scores], dim=0)    # [2N, S]
+    timestep_mean = all_scores.mean(dim=0)  # [S]
+
+    member_scores = (member_scores / timestep_mean).mean(dim=1) # [N]
+    nonmember_scores = (nonmember_scores / timestep_mean).mean(dim=1)
+
+    return member_scores, nonmember_scores
 
 def benchmark(member_scores, nonmember_scores, experiment, output_path):
 
@@ -194,7 +222,7 @@ def benchmark(member_scores, nonmember_scores, experiment, output_path):
         FPR_list.append(FPR.item())
         threshold_list.append(threshold.item())
 
-        print(f'Score threshold = {threshold:.16f} \t ASR: {acc:.8f} \t TPR: {TPR:.8f} \t FPR: {FPR:.8f}')
+        # print(f'Score threshold = {threshold:.16f} \t ASR: {acc:.8f} \t TPR: {TPR:.8f} \t FPR: {FPR:.8f}')
     auc = metrics.auc(np.asarray(FPR_list), np.asarray(TPR_list))
     print(f'AUROC: {auc}')
 
@@ -206,19 +234,26 @@ def benchmark(member_scores, nonmember_scores, experiment, output_path):
         json.dump(output, file, indent=4)
 
 def main(args):
-    _, holdout_loader = load_dataset(args.dataset_root, args.holdout_dataset)
-    _, member_loader = load_dataset(args.dataset_root, args.member_dataset)
+    _, holdout_loader = load_dataset(args.dataset_root, args.holdout_dataset, args.batch_size)
+    _, member_loader = load_dataset(args.dataset_root, args.member_dataset, args.batch_size)
 
     pipe = load_pipeline(args.ckpt_path, args.device)
 
-    member_scores_50th_step, member_scores_all_steps = get_reverse_denoise_results(pipe, member_loader)
-    nonmember_scores_50th_step, nonmember_scores_all_steps = get_reverse_denoise_results(pipe, holdout_loader)
+    if not args.use_ddp:
 
-    torch.save(member_scores_50th_step, args.output + 'member_scores_50th_step.pth')
-    torch.save(member_scores_all_steps, args.output + 'member_scores_all_steps.pth')
-    torch.save(nonmember_scores_50th_step, args.output + 'nonmember_scores_50th_step.pth')
-    torch.save(nonmember_scores_all_steps, args.output + 'nonmember_scores_all_steps.pth')
+        if not os.path.exists(args.output):
+            os.mkdir(args.output)
+            
+        member_scores_50th_step, member_scores_all_steps = get_reverse_denoise_results(pipe, member_loader, args.device)
+        torch.save(member_scores_all_steps, args.output + 'member_scores_all_steps.pth')
 
+        nonmember_scores_50th_step, nonmember_scores_all_steps = get_reverse_denoise_results(pipe, holdout_loader, args.device)
+        torch.save(nonmember_scores_all_steps, args.output + 'nonmember_scores_all_steps.pth')
+
+        member_corr_scores, nonmember_corr_scores = compute_corr_score(member_scores_all_steps, nonmember_scores_all_steps)
+        
+        benchmark(member_scores_50th_step, nonmember_scores_50th_step, 'secmi_50th_score', args.output)
+        benchmark(member_corr_scores, nonmember_corr_scores, 'secmi_corr_score', args.output)
     
 
 
@@ -240,29 +275,14 @@ if __name__ == '__main__':
     parser.add_argument('--ckpt-path', type=str, default='../models/diffusers/stable-diffusion-v1-5/')
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--output', type=str, default='outputs/')
+    parser.add_argument('--batch-size', type=int, default=10)
+    parser.add_argument('--use-ddp', type=bool, default=False)
     args = parser.parse_args()
 
     tokenizer = CLIPTokenizer.from_pretrained(
         args.ckpt_path, subfolder="tokenizer", revision=None
     )
     # tokenizer = tokenizer.cuda()
-
-    text_encoder = CLIPTextModel.from_pretrained(
-        args.ckpt_path, subfolder="text_encoder", revision=None
-    )
-    text_encoder = text_encoder.to(args.device)
-
-    vae = AutoencoderKL.from_pretrained(args.ckpt_path, subfolder="vae", revision=None)
-    vae = vae.to(args.device)
-
-    unet = UNet2DConditionModel.from_pretrained(
-        args.ckpt_path, subfolder="unet", revision=None
-    )
-    unet = unet.to(args.device)
-
-    # Freeze vae and text_encoder
-    vae.requires_grad_(False)
-    text_encoder.requires_grad_(False)
 
     fix_seed(args.seed)
 
