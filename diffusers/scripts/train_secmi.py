@@ -2,10 +2,8 @@ import sys
 sys.path.append('..')
 sys.path.append('.')
 import tqdm
-from sklearn import metrics
 import torch
 import numpy as np
-import json
 import random
 import os
 import argparse
