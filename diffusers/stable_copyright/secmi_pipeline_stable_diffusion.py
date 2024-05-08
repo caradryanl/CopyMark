@@ -14,6 +14,7 @@ from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import \
         deprecate,
         retrieve_timesteps,
         rescale_noise_cfg,
+        randn_tensor,
         DiffusionPipeline,
         StableDiffusionMixin,
         TextualInversionLoaderMixin,
@@ -21,6 +22,7 @@ from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import \
         IPAdapterMixin,
         FromSingleFileMixin,
     )
+
 
 @dataclass
 class SecMIStableDiffusionPipelineOutput(BaseOutput):
@@ -37,13 +39,26 @@ class SecMIStableDiffusionPipelineOutput(BaseOutput):
     """
 
     images: Union[List[PIL.Image.Image], np.ndarray]
-    reverse_results: Optional[List]
+    posterior_results: Optional[List]
     denoising_results: Optional[List]
 
 
 class SecMIStableDiffusionPipeline(
     StableDiffusionPipeline
 ):
+    # borrow from Image2Image
+    def get_timesteps(self, num_inference_steps, strength, device):
+        # get the original timestep using init_timestep
+        init_timestep = min(int(num_inference_steps * strength), num_inference_steps)
+
+        t_start = max(num_inference_steps - init_timestep, 0)
+        timesteps = self.scheduler.timesteps[t_start * self.scheduler.order :]  # order=1
+        # [601, 581, ..., 21, 1]
+        if hasattr(self.scheduler, "set_begin_index"):
+            self.scheduler.set_begin_index(t_start * self.scheduler.order)
+
+        return timesteps, num_inference_steps - t_start
+
     @torch.no_grad()
     @replace_example_docstring(EXAMPLE_DOC_STRING)
     def __call__(
@@ -70,6 +85,7 @@ class SecMIStableDiffusionPipeline(
         clip_skip: Optional[int] = None,
         callback_on_step_end: Optional[Callable[[int, int, Dict], None]] = None,
         callback_on_step_end_tensor_inputs: List[str] = ["latents"],
+        strength=0.2,
         **kwargs,
     ):
         r"""
@@ -239,6 +255,7 @@ class SecMIStableDiffusionPipeline(
 
         # 4. Prepare timesteps
         timesteps, num_inference_steps = retrieve_timesteps(self.scheduler, num_inference_steps, device, timesteps)
+        timesteps, num_inference_steps = self.get_timesteps(num_inference_steps, strength, device)
 
         # 5. Prepare latent variables
         num_channels_latents = self.unet.config.in_channels
@@ -271,27 +288,51 @@ class SecMIStableDiffusionPipeline(
                 guidance_scale_tensor, embedding_dim=self.unet.config.time_cond_proj_dim
             ).to(device=device, dtype=latents.dtype)
 
+        # get [x_201, x_181, ..., x_1]
+        print(timesteps)
+        posterior_results = []
         original_latents = latents.detach().clone()
-        reverse_results = [original_latents]
-        for i, t in enumerate(timesteps[:-1]):
-            latent_model_input = self.scheduler.scale_model_input(latents, t)
+        posterior_latents = original_latents
+        for i, t in enumerate(timesteps): # from t_max to t_min
+            noise = randn_tensor(posterior_latents.shape, generator=generator, device=device, dtype=posterior_latents.dtype)
+            posterior_latents = self.scheduler.scale_model_input(posterior_latents, t)
+            posterior_latents = self.scheduler.add_noise(posterior_latents, noise, t)
+            posterior_results.append(posterior_latents.detach().clone())
+            # print(f"{t} timestep posterior: {torch.sum(posterior_latents)}")
+
+        # get [x_(201+20), x_(181+20), ..., x_(1+20)]
+        reverse_results = []
+        for i, t in enumerate(timesteps):  # from t_max to t_min
+            latent_model_input = self.scheduler.scale_model_input(posterior_results[i], t)
             # predict the noise residual
-            noise_pred = self.unet(latent_model_input, t, encoder_hidden_states=prompt_embeds).sample
+            noise_pred = self.unet(
+                latent_model_input,
+                t,
+                encoder_hidden_states=prompt_embeds,
+                timestep_cond=timestep_cond,
+                cross_attention_kwargs=self.cross_attention_kwargs,
+                added_cond_kwargs=added_cond_kwargs,
+                return_dict=False,
+            )[0]
             # compute the previous noisy sample x_t -> x_t-1
-            latents = self.scheduler.step(noise_pred, t, latents, **extra_step_kwargs, return_dict=False)[0]
-            reverse_results.append(latents.detach().clone())
+            reverse_latents = self.scheduler.reverse_step(noise_pred, t, latent_model_input, **extra_step_kwargs, return_dict=False)[0]
+            reverse_results.append(reverse_latents.detach().clone())
+            
 
         # 7. Denoising loop
         num_warmup_steps = len(timesteps) - num_inference_steps * self.scheduler.order
         self._num_timesteps = len(timesteps)
         denoising_results = []
+        unit_t = timesteps[0] - timesteps[1]
         with self.progress_bar(total=num_inference_steps) as progress_bar:
             for i, t in enumerate(timesteps):
                 if self.interrupt:
                     continue
-
+                latents = reverse_results[i]
+                t = t + unit_t
                 # expand the latents if we are doing classifier free guidance
-                latent_model_input = torch.cat([latents] * 2) if self.do_classifier_free_guidance else latents
+                # latent_model_input = torch.cat([latents] * 2) if self.do_classifier_free_guidance else latents
+                latent_model_input = latents
                 latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
 
                 # predict the noise residual
@@ -305,18 +346,20 @@ class SecMIStableDiffusionPipeline(
                     return_dict=False,
                 )[0]
 
-                # perform guidance
-                if self.do_classifier_free_guidance:
-                    noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
-                    noise_pred = noise_pred_uncond + self.guidance_scale * (noise_pred_text - noise_pred_uncond)
+                # no classifier free guidance
+                # # perform guidance
+                # if self.do_classifier_free_guidance:
+                #     noise_pred_uncond, noise_pred_text = noise_pred.chunk(2)
+                #     noise_pred = noise_pred_uncond + self.guidance_scale * (noise_pred_text - noise_pred_uncond)
 
-                if self.do_classifier_free_guidance and self.guidance_rescale > 0.0:
-                    # Based on 3.4. in https://arxiv.org/pdf/2305.08891.pdf
-                    noise_pred = rescale_noise_cfg(noise_pred, noise_pred_text, guidance_rescale=self.guidance_rescale)
+                # if self.do_classifier_free_guidance and self.guidance_rescale > 0.0:
+                #     # Based on 3.4. in https://arxiv.org/pdf/2305.08891.pdf
+                #     noise_pred = rescale_noise_cfg(noise_pred, noise_pred_text, guidance_rescale=self.guidance_rescale)
 
                 # compute the previous noisy sample x_t -> x_t-1
                 latents = self.scheduler.step(noise_pred, t, latents, **extra_step_kwargs, return_dict=False)[0]
                 denoising_results.append(latents.detach().clone())
+                # print(f"{timesteps[i]} timestep denoising: {torch.sum(latents)}")
 
                 if callback_on_step_end is not None:
                     callback_kwargs = {}
@@ -351,4 +394,4 @@ class SecMIStableDiffusionPipeline(
         if not return_dict:
             return (image,)
 
-        return SecMIStableDiffusionPipelineOutput(images=image, reverse_results=reverse_results, denoising_results=denoising_results)
+        return SecMIStableDiffusionPipelineOutput(images=image, posterior_results=posterior_results, denoising_results=denoising_results)

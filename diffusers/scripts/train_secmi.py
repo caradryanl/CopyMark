@@ -3,24 +3,19 @@ sys.path.append('..')
 sys.path.append('.')
 import tqdm
 from sklearn import metrics
-from datasets import load_from_disk
 from torchvision import transforms
 import torch
-import matplotlib.pyplot as plt
 import numpy as np
 import json
 import random
-from diffusers import DDIMScheduler
 from diffusers import AutoencoderKL, UNet2DConditionModel
 from transformers import CLIPTextModel, CLIPTokenizer
 from PIL import Image
-from torchvision.datasets import CocoDetection
 import os
 from typing import Iterable, Callable, Optional, Any, Tuple, List
-from omegaconf import OmegaConf
 import argparse
 
-from stable_copyright import SecMIStableDiffusionPipeline
+from stable_copyright import SecMIStableDiffusionPipeline, SecMIDDIMScheduler
 
 
 def collate_fn(examples):
@@ -135,7 +130,7 @@ def load_dataset(dataset_root, dataset: str='laion-aesthetic-2-5k'):
 
 def load_pipeline(ckpt_path, device='cuda:0'):
     pipe = SecMIStableDiffusionPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
-    pipe.scheduler = DDIMScheduler.from_config(pipe.scheduler.config)
+    pipe.scheduler = SecMIDDIMScheduler.from_config(pipe.scheduler.config)
     pipe = pipe.to(device)
     return pipe
 
@@ -154,10 +149,10 @@ def get_reverse_denoise_results(pipe, dataloader, prefix='member'):
         input_ids = batch["input_ids"].cuda()
         encoder_hidden_states = text_encoder(input_ids)[0]
 
-        out = pipe(prompt=None, latents=latents, prompt_embeds=encoder_hidden_states, guidance_scale=1.0)
-        image, reverse_results, denoising_results = out.images, out.reverse_results, out.denoising_results
+        out = pipe(prompt=None, latents=latents, prompt_embeds=encoder_hidden_states, guidance_scale=1.0, num_inference_steps=100)
+        image, posterior_results, denoising_results = out.images, out.posterior_results, out.denoising_results
 
-        score = ((denoising_results[-15] - reverse_results[14]) ** 2).sum()
+        score = ((denoising_results[14] - posterior_results[14]) ** 2).sum()
         scores.append(score.reshape(-1, 1))
         mean_l2 += score
         print(f'[{batch_idx}/{len(dataloader)}] mean l2-sum: {mean_l2 / (batch_idx + 1):.8f}')
