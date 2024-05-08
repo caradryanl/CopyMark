@@ -15,28 +15,9 @@ from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import \
         retrieve_timesteps,
         randn_tensor,
     )
+from .secmi_pipeline_stable_diffusion import SecMIStableDiffusionPipelineOutput
 
-
-@dataclass
-class SecMIStableDiffusionPipelineOutput(BaseOutput):
-    """
-    Output class for Stable Diffusion pipelines.
-
-    Args:
-        images (`List[PIL.Image.Image]` or `np.ndarray`)
-            List of denoised PIL images of length `batch_size` or NumPy array of shape `(batch_size, height, width,
-            num_channels)`.
-        nsfw_content_detected (`List[bool]`)
-            List indicating whether the corresponding generated image contains "not-safe-for-work" (nsfw) content or
-            `None` if safety checking could not be performed.
-    """
-
-    images: Union[List[PIL.Image.Image], np.ndarray]
-    posterior_results: Optional[List]
-    denoising_results: Optional[List]
-
-
-class SecMIStableDiffusionPipeline(
+class PIAStableDiffusionPipeline(
     StableDiffusionPipeline
 ):
     @torch.no_grad()
