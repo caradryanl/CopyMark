@@ -72,7 +72,8 @@ class PIAStableDiffusionPipeline(
         clip_skip: Optional[int] = None,
         callback_on_step_end: Optional[Callable[[int, int, Dict], None]] = None,
         callback_on_step_end_tensor_inputs: List[str] = ["latents"],
-        strength=0.2,
+        strength: float=0.5,
+        normalized: bool=False,
         **kwargs,
     ):
         r"""
@@ -277,32 +278,23 @@ class PIAStableDiffusionPipeline(
 
         # get [x_201, x_181, ..., x_1]
         # print(timesteps)
-        posterior_results = []
         original_latents = latents.detach().clone()
+        posterior_results = []
+        latent_model_input = self.scheduler.scale_model_input(latents, 0)
+        noise_pred_gt = self.unet(
+            latent_model_input,
+            0,
+            encoder_hidden_states=prompt_embeds,
+            timestep_cond=timestep_cond,
+            cross_attention_kwargs=self.cross_attention_kwargs,
+            added_cond_kwargs=added_cond_kwargs,
+            return_dict=False,
+        )[0]
+        if normalized:
+            noise_pred_gt = noise_pred_gt / noise_pred_gt.abs().mean(list(range(1, noise_pred_gt.ndim)), keepdim=True) * (2 / torch.pi) ** 0.5
         for i, t in enumerate(timesteps): # from t_max to t_min
-            noise = randn_tensor(original_latents.shape, generator=generator, device=device, dtype=original_latents.dtype)
-            posterior_latents = self.scheduler.scale_model_input(original_latents, t)
-            posterior_latents = self.scheduler.add_noise(posterior_latents, noise, t)
-            posterior_results.append(posterior_latents.detach().clone())
+            posterior_results.append(noise_pred_gt.detach().clone())
             # print(f"{t} timestep posterior: {torch.sum(posterior_latents)}")
-
-        # get [x_(201+20), x_(181+20), ..., x_(1+20)]
-        reverse_results = []
-        for i, t in enumerate(timesteps):  # from t_max to t_min
-            latent_model_input = self.scheduler.scale_model_input(posterior_results[i], t)
-            # predict the noise residual
-            noise_pred = self.unet(
-                latent_model_input,
-                t,
-                encoder_hidden_states=prompt_embeds,
-                timestep_cond=timestep_cond,
-                cross_attention_kwargs=self.cross_attention_kwargs,
-                added_cond_kwargs=added_cond_kwargs,
-                return_dict=False,
-            )[0]
-            # compute the previous noisy sample x_t -> x_t-1
-            reverse_latents = self.scheduler.reverse_step(noise_pred, t, latent_model_input, **extra_step_kwargs, return_dict=False)[0]
-            reverse_results.append(reverse_latents.detach().clone())
             
 
         # 7. Denoising loop
@@ -314,12 +306,13 @@ class PIAStableDiffusionPipeline(
             for i, t in enumerate(timesteps):
                 if self.interrupt:
                     continue
-                latents = reverse_results[i]
+                noise = posterior_results[i]
                 t = t + unit_t
                 # expand the latents if we are doing classifier free guidance
                 # latent_model_input = torch.cat([latents] * 2) if self.do_classifier_free_guidance else latents
-                latent_model_input = latents
+                latent_model_input = original_latents.detach().clone()
                 latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
+                latent_model_input = self.scheduler.add_noise(latent_model_input, noise, t)
 
                 # predict the noise residual
                 noise_pred = self.unet(
@@ -343,8 +336,9 @@ class PIAStableDiffusionPipeline(
                 #     noise_pred = rescale_noise_cfg(noise_pred, noise_pred_text, guidance_rescale=self.guidance_rescale)
 
                 # compute the previous noisy sample x_t -> x_t-1
-                latents = self.scheduler.step(noise_pred, t, latents, **extra_step_kwargs, return_dict=False)[0]
-                denoising_results.append(latents.detach().clone())
+                denoising_results.append(noise_pred.detach().clone())
+                latents = self.scheduler.step(noise_pred, t, latent_model_input, **extra_step_kwargs, return_dict=False)[0]
+                
                 # print(f"{timesteps[i]} timestep denoising: {torch.sum(latents)}")
 
                 if callback_on_step_end is not None:

@@ -18,7 +18,7 @@ def load_pipeline(ckpt_path, device='cuda:0'):
     pipe = pipe.to(device)
     return pipe
 
-def get_reverse_denoise_results(pipe, dataloader, device, prefix='member'):
+def get_reverse_denoise_results(pipe, dataloader, device,):
 
     weight_dtype = torch.float32
     mean_l2 = 0
