@@ -47,8 +47,8 @@ def get_reverse_denoise_results(pipe, dataloader, device, normalized):
         mean_l2 += scores_sum[-1].item()
         print(f'[{batch_idx}/{len(dataloader)}] mean l2-sum: {mean_l2 / (batch_idx + 1):.8f}')
 
-        if batch_idx > 0:
-            break
+        # if batch_idx > 0:
+        #     break
 
     return torch.stack(scores_sum, dim=0), torch.stack(scores_all_steps, dim=0)
 
