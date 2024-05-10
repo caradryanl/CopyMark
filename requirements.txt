@@ -23,3 +23,7 @@ xformers
 omegaconf
 matplotlib
 scikit-learn
+
+# by drc:
+opencv-python
+scikit-image
