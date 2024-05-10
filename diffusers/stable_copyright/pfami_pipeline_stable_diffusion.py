@@ -17,7 +17,7 @@ from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import \
     )
 from .secmi_pipeline_stable_diffusion import SecMIStableDiffusionPipelineOutput
 
-class PIAStableDiffusionPipeline(
+class PFAMIStableDiffusionPipeline(
     StableDiffusionPipeline
 ):
     @torch.no_grad()
@@ -72,8 +72,7 @@ class PIAStableDiffusionPipeline(
         clip_skip: Optional[int] = None,
         callback_on_step_end: Optional[Callable[[int, int, Dict], None]] = None,
         callback_on_step_end_tensor_inputs: List[str] = ["latents"],
-        strength: float=0.5,
-        normalized: bool=False,
+        attack_timesteps: List[int] = [0, 50, 100, 150, 200, 250, 300, 350, 400, 450],
         **kwargs,
     ):
         r"""
@@ -157,6 +156,12 @@ class PIAStableDiffusionPipeline(
                 second element is a list of `bool`s indicating whether the corresponding generated image contains
                 "not-safe-for-work" (nsfw) content.
         """
+
+        '''
+            Return:
+                posterior_results [ground_truth (perturb scale: 0~strength)]
+                denoising_results [prediction (perturb scale: 0~strength)]
+        '''
 
         callback = kwargs.pop("callback", None)
         callback_steps = kwargs.pop("callback_steps", None)
@@ -243,7 +248,6 @@ class PIAStableDiffusionPipeline(
 
         # 4. Prepare timesteps
         timesteps, num_inference_steps = retrieve_timesteps(self.scheduler, num_inference_steps, device, timesteps)
-        timesteps, num_inference_steps = self.get_timesteps(num_inference_steps, strength, device)
 
         # 5. Prepare latent variables
         num_channels_latents = self.unet.config.in_channels
@@ -276,37 +280,23 @@ class PIAStableDiffusionPipeline(
                 guidance_scale_tensor, embedding_dim=self.unet.config.time_cond_proj_dim
             ).to(device=device, dtype=latents.dtype)
 
-        # get [x_201, x_181, ..., x_1]
+        # get the intermediate at t in attack_timesteps [x_201, x_181, ..., x_1]
         # print(timesteps)
         original_latents = latents.detach().clone()
         posterior_results = []
-        latent_model_input = self.scheduler.scale_model_input(latents, 0)
-        # noise_pred_gt = self.unet(
-        #     latent_model_input,
-        #     0,
-        #     encoder_hidden_states=prompt_embeds,
-        #     timestep_cond=timestep_cond,
-        #     cross_attention_kwargs=self.cross_attention_kwargs,
-        #     added_cond_kwargs=added_cond_kwargs,
-        #     return_dict=False,
-        # )[0]
-        noise_pred_gt = randn_tensor(original_latents.shape, generator=generator, device=device, dtype=original_latents.dtype)
-        # print(f"timestep: {0}, sum: {noise_pred_gt.sum()} {noise_pred_gt[0, 0, :10, 0]}")
-        if normalized:
-            noise_pred_gt = noise_pred_gt / noise_pred_gt.abs().mean(list(range(1, noise_pred_gt.ndim)), keepdim=True) * (2 / torch.pi) ** 0.5
-        for i, t in enumerate(timesteps): # from t_max to t_min
-            posterior_results.append(noise_pred_gt.detach().clone())
+        for i, t in enumerate(attack_timesteps): # from t_max to t_min
+            noise = randn_tensor(original_latents.shape, generator=generator, device=device, dtype=original_latents.dtype)
+            posterior_results.append(noise)
             # print(f"{t} timestep posterior: {torch.sum(posterior_latents)}")
             
 
         # 7. Denoising loop
-        num_warmup_steps = len(timesteps) - num_inference_steps * self.scheduler.order
-        self._num_timesteps = len(timesteps)
+        # num_warmup_steps = len(timesteps) - num_inference_steps * self.scheduler.order
+        self._num_timesteps = len(attack_timesteps)
         denoising_results = []
-        unit_t = timesteps[0] - timesteps[1]
-        # print(unit_t, timesteps)
-        with self.progress_bar(total=num_inference_steps) as progress_bar:
-            for i, t in enumerate(timesteps):
+        unit_t = abs(attack_timesteps[0] - attack_timesteps[1])
+        with self.progress_bar(total=len(attack_timesteps)) as progress_bar:
+            for i, t in enumerate(attack_timesteps):
                 if self.interrupt:
                     continue
                 noise = posterior_results[i]
@@ -327,7 +317,6 @@ class PIAStableDiffusionPipeline(
                     added_cond_kwargs=added_cond_kwargs,
                     return_dict=False,
                 )[0]
-                # print(f"timestep: {t}, sum: {noise_pred.sum()} {noise_pred[0, 0, :10, 0]}")
 
                 # no classifier free guidance
                 # # perform guidance
@@ -356,11 +345,11 @@ class PIAStableDiffusionPipeline(
                     negative_prompt_embeds = callback_outputs.pop("negative_prompt_embeds", negative_prompt_embeds)
 
                 # call the callback, if provided
-                if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0):
-                    progress_bar.update()
-                    if callback is not None and i % callback_steps == 0:
-                        step_idx = i // getattr(self.scheduler, "order", 1)
-                        callback(step_idx, t, latents)
+                # if i == len(timesteps) - 1 or ((i + 1) > num_warmup_steps and (i + 1) % self.scheduler.order == 0):
+                #     progress_bar.update()
+                #     if callback is not None and i % callback_steps == 0:
+                #         step_idx = i // getattr(self.scheduler, "order", 1)
+                #         callback(step_idx, t, latents)
 
         if not output_type == "latent":
             image = self.vae.decode(latents / self.vae.config.scaling_factor, return_dict=False, generator=generator)[

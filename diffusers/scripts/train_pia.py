@@ -39,16 +39,17 @@ def get_reverse_denoise_results(pipe, dataloader, device, normalized):
             for i in range(len(denoising_results)):
                 score_all_step.append(((denoising_results[i][idx, ...] - posterior_results[i][idx, ...]) ** 2).sum())
             score_all_step = torch.stack(score_all_step, dim=0) # torch.Size([50])
+            # print(score_all_step.shape)
             score_sum = score_all_step.sum()
 
             scores_sum.append(score_sum.reshape(-1).detach().clone().cpu())    # List[torch.Size([1])]
             scores_all_steps.append(score_all_step.reshape(-1).detach().clone().cpu()) # List[torch.Size([50])]
         
-        mean_l2 += scores_sum[-1].item()
+        mean_l2 += score_sum.item()
         print(f'[{batch_idx}/{len(dataloader)}] mean l2-sum: {mean_l2 / (batch_idx + 1):.8f}')
 
-        # if batch_idx > 0:
-        #     break
+        if batch_idx > 0:
+            break
 
     return torch.stack(scores_sum, dim=0), torch.stack(scores_all_steps, dim=0)
 
