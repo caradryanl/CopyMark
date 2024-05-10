@@ -76,7 +76,7 @@ def get_reverse_denoise_results(pipe, dataloader, device, strengths):
 
         # compute the probability flunctuation delta_prob
         eps = 1e-6
-        ori_losses = ori_losses.unsqueeze(dim=0).repeat(len(strengths),...) # [M, T, B]
+        ori_losses = ori_losses.unsqueeze(dim=0).repeat(len(strengths),1, 1) # [M, T, B]
         delta_prob = (ori_losses - perturb_losses) / (ori_losses + eps) # [M, T, B]
         delta_prob = delta_prob.mean(dim=0) # [T, B]
         delta_prob_sum = delta_prob.sum(dim=0)   # [B]
@@ -84,14 +84,14 @@ def get_reverse_denoise_results(pipe, dataloader, device, strengths):
         for item in delta_prob_sum:
             scores_sum.append(item.detach().clone().cpu()) # List[tensor]
 
-        for idx in delta_prob.shape[1]:
+        for idx in range(delta_prob.shape[1]):
             scores_all_steps.append(delta_prob[:, idx].detach().clone().cpu())
             
         mean_l2 += scores_sum[-1].item()
         print(f'[{batch_idx}/{len(dataloader)}] mean l2-sum: {mean_l2 / (batch_idx + 1):.8f}')
 
-        if batch_idx > 0:
-            break
+        # if batch_idx > 0:
+        #     break
 
     return torch.stack(scores_sum, dim=0), torch.stack(scores_all_steps, dim=0)
 

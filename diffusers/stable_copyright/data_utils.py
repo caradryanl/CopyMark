@@ -24,7 +24,7 @@ def benchmark(member_scores, nonmember_scores, experiment, output_path):
     best_threshold_at_1_FPR, best_threshold_at_01_FPR = 0.0, 0.0
 
     total = member_scores.size(0) + nonmember_scores.size(0)
-    for threshold in torch.range(min_score, max_score, (max_score - min_score) / 10000):
+    for threshold in torch.arange(min_score, max_score, (max_score - min_score) / 10000):
         acc = ((member_scores <= threshold).sum() + (nonmember_scores > threshold).sum()) / total
 
         TP = (member_scores <= threshold).sum()
