@@ -10,6 +10,7 @@ import random
 import os
 import argparse
 from copy import deepcopy
+import time, json
 
 from stable_copyright import PIAStableDiffusionPipeline, SecMIDDIMScheduler
 from stable_copyright import load_dataset, benchmark
@@ -117,6 +118,8 @@ def compute_corr_score(member_scores, nonmember_scores):
 
 
 def main(args):
+    start_time = time.time()
+
     _, holdout_loader = load_dataset(args.dataset_root, args.ckpt_path, args.holdout_dataset, args.batch_size)
     _, member_loader = load_dataset(args.dataset_root, args.ckpt_path, args.member_dataset, args.batch_size)
 
@@ -142,6 +145,14 @@ def main(args):
 
     else:
         raise NotImplementedError('DDP not implemented')
+    
+    end_time = time.time()
+    elapsed_time = end_time - start_time
+    running_time = dict(running_time=elapsed_time)
+    
+    with open(args.output + 'pfami_running_time.json', 'w') as file:
+        json.dump(running_time, file, indent=4)
+
     
 
 
