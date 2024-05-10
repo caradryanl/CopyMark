@@ -33,4 +33,5 @@ models/diffusers/*
 !models/diffusers/put_diffusers_models_here
 diffusers/outputs/*
 !diffusers/experiments/secmi_random/*
+!diffusers/experiments/pia/*
 diffusers/datasets/*
