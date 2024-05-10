@@ -17,7 +17,7 @@ from stable_copyright import load_dataset, benchmark
 def image_perturbation(image, strength):
     perturbation = transforms.Compose([
         transforms.CenterCrop(size=int(512 * strength)),
-        transforms.Resize(size=512),
+        transforms.Resize(size=512, antialias=True),
     ])
     return perturbation(image)
 
@@ -46,12 +46,13 @@ def get_reverse_denoise_results(pipe, dataloader, device, strengths):
         for i in range(len(ori_posterior_results)):
             ori_losses_batch = []
             for idx in range(ori_posterior_results[0].shape[0]):
-                ori_loss = ((denoising_results[i][idx, ...] - ori_posterior_results[i][idx, ...]) ** 2).sum()
+                ori_loss = ((ori_posterior_results[i][idx, ...] - ori_denoising_results[i][idx, ...]) ** 2).sum()
                 ori_losses_batch.append(ori_loss)
             ori_losses_batch = torch.stack(ori_losses_batch, dim=0).reshape(-1)
             ori_losses.append(ori_losses_batch)
         ori_losses = torch.stack(ori_losses, dim=0) # [T, B]
 
+        perturb_losses = []
         for strength in strengths:
             input_batch = deepcopy(batch)
             input_batch["pixel_values"] = image_perturbation(input_batch["pixel_values"], strength)
@@ -60,24 +61,37 @@ def get_reverse_denoise_results(pipe, dataloader, device, strengths):
                     guidance_scale=1.0, num_inference_steps=100)
             _, posterior_results, denoising_results = out.images, out.posterior_results, out.denoising_results
             # [len(attack_timesteps) x [B, 4, 64, 64]]
-            # print(f'posterior {posterior_results[0].shape}')
+            perturb_losses_strength = []
+            for i in range(len(posterior_results)):
+                losses_batch = []
+                for idx in range(posterior_results[0].shape[0]):
+                    loss = ((posterior_results[i][idx, ...] - denoising_results[i][idx, ...]) ** 2).sum()
+                    losses_batch.append(loss)
+                losses_batch = torch.stack(losses_batch, dim=0).reshape(-1)
+                perturb_losses_strength.append(losses_batch)
+            perturb_losses_strength = torch.stack(perturb_losses_strength, dim=0) # [T, B]
+            perturb_losses.append(perturb_losses_strength)
 
-            for idx in range(posterior_results[0].shape[0]):
-                
-                score_all_step = []
-                for i in range(len(denoising_results)):
-                    score_all_step.append(((denoising_results[i][idx, ...] - posterior_results[i][idx, ...]) ** 2).sum())
-                score_all_step = torch.stack(score_all_step, dim=0) # torch.Size([50])
-                score_sum = score_all_step.sum()
+        perturb_losses = torch.stack(perturb_losses, dim=0) # [M, T, B]
 
-                scores_sum.append(score_sum.reshape(-1).detach().clone().cpu())    # List[torch.Size([1])]
-                scores_all_steps.append(score_all_step.reshape(-1).detach().clone().cpu()) # List[torch.Size([50])]
+        # compute the probability flunctuation delta_prob
+        eps = 1e-6
+        ori_losses = ori_losses.unsqueeze(dim=0).repeat(len(strengths),...) # [M, T, B]
+        delta_prob = (ori_losses - perturb_losses) / (ori_losses + eps) # [M, T, B]
+        delta_prob = delta_prob.mean(dim=0) # [T, B]
+        delta_prob_sum = delta_prob.sum(dim=0)   # [B]
+
+        for item in delta_prob_sum:
+            scores_sum.append(item.detach().clone().cpu()) # List[tensor]
+
+        for idx in delta_prob.shape[1]:
+            scores_all_steps.append(delta_prob[:, idx].detach().clone().cpu())
             
-            mean_l2 += scores_sum[-1].item()
-            print(f'[{batch_idx}/{len(dataloader)}] mean l2-sum: {mean_l2 / (batch_idx + 1):.8f}')
+        mean_l2 += scores_sum[-1].item()
+        print(f'[{batch_idx}/{len(dataloader)}] mean l2-sum: {mean_l2 / (batch_idx + 1):.8f}')
 
-            # if batch_idx > 0:
-            #     break
+        if batch_idx > 0:
+            break
 
     return torch.stack(scores_sum, dim=0), torch.stack(scores_all_steps, dim=0)
 

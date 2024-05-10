@@ -4,3 +4,5 @@ from .secmi_pipeline_stable_diffusion import SecMIStableDiffusionPipeline
 from .secmi_scheduling_ddim import SecMIDDIMScheduler
 
 from .pia_pipeline_stable_diffusion import PIAStableDiffusionPipeline
+
+from .pfami_pipeline_stable_diffusion import PFAMIStableDiffusionPipeline
