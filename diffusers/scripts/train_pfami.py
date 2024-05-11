@@ -32,8 +32,9 @@ def load_pipeline(ckpt_path, device='cuda:0'):
 def get_reverse_denoise_results(pipe, dataloader, device, strengths):
     weight_dtype = torch.float32
     mean_l2 = 0
-    scores_sum, scores_all_steps = [], []
+    scores_sum, scores_all_steps, path_list, = [], [], []
     for batch_idx, batch in enumerate(tqdm.tqdm(dataloader)):
+        path_list.extend(batch['path'])
         original_batch = deepcopy(batch)
         # clean example
         latents, encoder_hidden_states = pipe.prepare_inputs(original_batch, weight_dtype, device)
@@ -94,7 +95,7 @@ def get_reverse_denoise_results(pipe, dataloader, device, strengths):
         # if batch_idx > 0:
         #     break
 
-    return torch.stack(scores_sum, dim=0), torch.stack(scores_all_steps, dim=0)
+    return torch.stack(scores_sum, dim=0), torch.stack(scores_all_steps, dim=0), path_list
 
 def get_reverse_denoise_results_ddp(pipe, dataloader):
     '''
@@ -132,16 +133,19 @@ def main(args):
         if not os.path.exists(args.output):
             os.mkdir(args.output)
 
-        member_scores_sum_step, member_scores_all_steps = get_reverse_denoise_results(pipe, member_loader, args.device, strengths)
+        member_scores_sum_step, member_scores_all_steps, member_path_list = get_reverse_denoise_results(pipe, member_loader, args.device, strengths)
         torch.save(member_scores_all_steps, args.output + 'pfami_member_scores_all_steps.pth')
 
-        nonmember_scores_sum_step, nonmember_scores_all_steps = get_reverse_denoise_results(pipe, holdout_loader, args.device, strengths)
+        nonmember_scores_sum_step, nonmember_scores_all_steps, nonmember_path_list = get_reverse_denoise_results(pipe, holdout_loader, args.device, strengths)
         torch.save(nonmember_scores_all_steps, args.output + 'pfami_nonmember_scores_all_steps.pth')
 
         member_corr_scores, nonmember_corr_scores = compute_corr_score(member_scores_all_steps, nonmember_scores_all_steps)
         
         benchmark(member_scores_sum_step, nonmember_scores_sum_step, 'pfami_sum_score', args.output)
         benchmark(member_corr_scores, nonmember_corr_scores, 'pfami_corr_score', args.output)
+
+        with open(args.output + 'pfami_image_log.json', 'w') as file:
+            json.dump(dict(member=member_path_list, nonmember=nonmember_path_list), file, indent=4)
 
     else:
         raise NotImplementedError('DDP not implemented')
