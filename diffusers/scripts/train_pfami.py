@@ -32,9 +32,9 @@ def load_pipeline(ckpt_path, device='cuda:0'):
 def get_reverse_denoise_results(pipe, dataloader, device, strengths):
     weight_dtype = torch.float32
     mean_l2 = 0
-    scores_sum, scores_all_steps, path_list, = [], [], []
+    scores_sum, scores_all_steps, path_log, = [], [], []
     for batch_idx, batch in enumerate(tqdm.tqdm(dataloader)):
-        path_list.extend(batch['path'])
+        path_log.extend(batch['path'])
         original_batch = deepcopy(batch)
         # clean example
         latents, encoder_hidden_states = pipe.prepare_inputs(original_batch, weight_dtype, device)
@@ -95,7 +95,7 @@ def get_reverse_denoise_results(pipe, dataloader, device, strengths):
         # if batch_idx > 0:
         #     break
 
-    return torch.stack(scores_sum, dim=0), torch.stack(scores_all_steps, dim=0), path_list
+    return torch.stack(scores_sum, dim=0), torch.stack(scores_all_steps, dim=0), path_log
 
 def get_reverse_denoise_results_ddp(pipe, dataloader):
     '''
