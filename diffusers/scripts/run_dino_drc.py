@@ -111,7 +111,7 @@ if __name__ == '__main__':
     parser.add_argument("--mask_size", default=(512, 512), type=int, nargs="+", help="Resize image.")
     # parser.add_argument('--output_dir', default='datasets/coco2017-val-2-5k/masks/', help='Path where to save visualizations.')
     parser.add_argument('--output_dir', default='datasets/laion-aesthetic-2-5k/masks/', help='Path where to save visualizations.')
-    parser.add_argument("--threshold", type=float, default=None, help="""We visualize masks
+    parser.add_argument("--threshold", type=float, default=80, help="""We visualize masks
         obtained by thresholding the self-attention maps to keep xx% of the mass.""")
     args = parser.parse_args()
 
@@ -201,7 +201,7 @@ if __name__ == '__main__':
                 mask[i] * 1 / mask.shape[0]
                 for i in range(mask.shape[0])
             )
-        threshold = np.percentile(mask, 90)
+        threshold = np.percentile(mask, args.threshold)
         mask = np.where(mask >= threshold, 1, 0)
         # print(mask.shape)
         attentions = nn.functional.interpolate(attentions.unsqueeze(0), scale_factor=args.patch_size, mode="nearest")[0].cpu().numpy()

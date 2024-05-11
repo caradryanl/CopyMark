@@ -159,7 +159,7 @@ class Dataset(torch.utils.data.Dataset):
             image, input_id = StandardTransform(self.transforms, None)(image, input_id)
 
         # return image, target
-        return {"pixel_values": image, "input_ids": input_id, 'caption': caption, 'path': img_path, 'mask': mask}
+        return {"pixel_values": image, "input_ids": input_id, 'caption': caption, 'path': img_name, 'mask': mask}
 
 
 def load_dataset(dataset_root, ckpt_path, dataset: str='laion-aesthetic-2-5k', batch_size: int=6):

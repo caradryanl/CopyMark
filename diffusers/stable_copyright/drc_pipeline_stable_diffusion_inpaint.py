@@ -463,7 +463,14 @@ class DRCStableDiffusionInpaintPipeline(
                         callback(step_idx, t, latents)
 
 
-        image = latents
+        if not output_type == "latent":
+            condition_kwargs = {}
+            image = self.vae.decode(
+                latents / self.vae.config.scaling_factor, return_dict=False, generator=generator, **condition_kwargs
+            )[0]
+        else:
+            image = latents
+            
         do_denormalize = [True] * image.shape[0]
         image = self.image_processor.postprocess(image, output_type=output_type, do_denormalize=do_denormalize)
 
@@ -476,4 +483,4 @@ class DRCStableDiffusionInpaintPipeline(
         if not return_dict:
             return (image,)
 
-        return SecMIStableDiffusionPipelineOutput(images=image)
+        return SecMIStableDiffusionPipelineOutput(images=image, posterior_results=None, denoising_results=None)
