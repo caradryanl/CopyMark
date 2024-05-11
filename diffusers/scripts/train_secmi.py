@@ -24,8 +24,9 @@ def get_reverse_denoise_results(pipe, dataloader, device,):
 
     weight_dtype = torch.float32
     mean_l2 = 0
-    scores_50_step, scores_all_steps = [], []
+    scores_50_step, scores_all_steps, path_log = [], [], []
     for batch_idx, batch in enumerate(tqdm.tqdm(dataloader)):
+        path_log.extend(batch['path'])
         latents, encoder_hidden_states = pipe.prepare_inputs(batch, weight_dtype, device)
         out = pipe(prompt=None, latents=latents, prompt_embeds=encoder_hidden_states, guidance_scale=1.0, num_inference_steps=100)
         _, posterior_results, denoising_results = out.images, out.posterior_results, out.denoising_results
@@ -49,7 +50,7 @@ def get_reverse_denoise_results(pipe, dataloader, device,):
         # if batch_idx > 0:
         #     break
 
-    return torch.stack(scores_50_step, dim=0), torch.stack(scores_all_steps, dim=0)
+    return torch.stack(scores_50_step, dim=0), torch.stack(scores_all_steps, dim=0), path_log
 
 def get_reverse_denoise_results_ddp(pipe, dataloader, prefix='member'):
     '''
@@ -85,16 +86,19 @@ def main(args):
         if not os.path.exists(args.output):
             os.mkdir(args.output)
 
-        member_scores_50th_step, member_scores_all_steps = get_reverse_denoise_results(pipe, member_loader, args.device)
+        member_scores_50th_step, member_scores_all_steps, member_path_log = get_reverse_denoise_results(pipe, member_loader, args.device)
         torch.save(member_scores_all_steps, args.output + 'member_scores_all_steps.pth')
 
-        nonmember_scores_50th_step, nonmember_scores_all_steps = get_reverse_denoise_results(pipe, holdout_loader, args.device)
+        nonmember_scores_50th_step, nonmember_scores_all_steps, nonmember_path_log = get_reverse_denoise_results(pipe, holdout_loader, args.device)
         torch.save(nonmember_scores_all_steps, args.output + 'nonmember_scores_all_steps.pth')
 
         member_corr_scores, nonmember_corr_scores = compute_corr_score(member_scores_all_steps, nonmember_scores_all_steps)
         
         benchmark(member_scores_50th_step, nonmember_scores_50th_step, 'secmi_50th_score', args.output)
         benchmark(member_corr_scores, nonmember_corr_scores, 'secmi_corr_score', args.output)
+
+        with open(args.output + 'secmi_image_log.json', 'w') as file:
+            json.dump(dict(member=member_path_log, nonmember=nonmember_path_log), file, indent=4)
 
     else:
         raise NotImplementedError('DDP not implemented')

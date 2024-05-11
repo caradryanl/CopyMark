@@ -133,10 +133,10 @@ def main(args):
         if not os.path.exists(args.output):
             os.mkdir(args.output)
 
-        member_scores_sum_step, member_scores_all_steps, member_path_list = get_reverse_denoise_results(pipe, member_loader, args.device, strengths)
+        member_scores_sum_step, member_scores_all_steps, member_path_log = get_reverse_denoise_results(pipe, member_loader, args.device, strengths)
         torch.save(member_scores_all_steps, args.output + 'pfami_member_scores_all_steps.pth')
 
-        nonmember_scores_sum_step, nonmember_scores_all_steps, nonmember_path_list = get_reverse_denoise_results(pipe, holdout_loader, args.device, strengths)
+        nonmember_scores_sum_step, nonmember_scores_all_steps, nonmember_path_log = get_reverse_denoise_results(pipe, holdout_loader, args.device, strengths)
         torch.save(nonmember_scores_all_steps, args.output + 'pfami_nonmember_scores_all_steps.pth')
 
         member_corr_scores, nonmember_corr_scores = compute_corr_score(member_scores_all_steps, nonmember_scores_all_steps)
@@ -145,7 +145,7 @@ def main(args):
         benchmark(member_corr_scores, nonmember_corr_scores, 'pfami_corr_score', args.output)
 
         with open(args.output + 'pfami_image_log.json', 'w') as file:
-            json.dump(dict(member=member_path_list, nonmember=nonmember_path_list), file, indent=4)
+            json.dump(dict(member=member_path_log, nonmember=nonmember_path_log), file, indent=4)
 
     else:
         raise NotImplementedError('DDP not implemented')
