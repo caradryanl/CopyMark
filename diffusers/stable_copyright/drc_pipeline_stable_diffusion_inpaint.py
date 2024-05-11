@@ -7,8 +7,9 @@ from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion_inpaint impo
         deprecate,
         retrieve_timesteps,
         randn_tensor,
-        StableDiffusionPipelineOutput
     )
+
+from .secmi_pipeline_stable_diffusion import SecMIStableDiffusionPipelineOutput
 
 
 class DRCStableDiffusionInpaintPipeline(
@@ -20,8 +21,6 @@ class DRCStableDiffusionInpaintPipeline(
         if device == 'cuda':
             pixel_values, input_ids = pixel_values.cuda(), input_ids.cuda()
 
-        latents = self.vae.encode(pixel_values).latent_dist.sample()
-        latents = latents * 0.18215
         encoder_hidden_states = self.text_encoder(input_ids)[0]
 
         masks = []
@@ -29,7 +28,7 @@ class DRCStableDiffusionInpaintPipeline(
             masks.append(torch.tensor(mask))
         masks = torch.stack(masks, dim=0).cuda()
 
-        return latents, encoder_hidden_states, masks
+        return pixel_values, encoder_hidden_states, masks
 
     @torch.no_grad()
     def __call__(
@@ -345,6 +344,7 @@ class DRCStableDiffusionInpaintPipeline(
         else:
             masked_image = masked_image_latents
 
+        mask_condition = mask_condition.to(dtype=masked_image.dtype)
         mask, masked_image_latents = self.prepare_mask_latents(
             mask_condition,
             masked_image,
@@ -476,4 +476,4 @@ class DRCStableDiffusionInpaintPipeline(
         if not return_dict:
             return (image,)
 
-        return StableDiffusionPipelineOutput(images=image)
+        return SecMIStableDiffusionPipelineOutput(images=image)

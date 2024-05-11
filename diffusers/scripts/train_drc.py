@@ -8,12 +8,19 @@ import random
 import os
 import argparse
 import json,time
+from torchvision import transforms
 
 from stable_copyright import load_dataset, benchmark, DRCStableDiffusionInpaintPipeline
 from diffusers.schedulers.scheduling_ddim import DDIMScheduler
-from transformers import CLIPTextModel, CLIPImageProcessor
+from transformers import CLIPModel, CLIPImageProcessor
 
 # git clone https://huggingface.co/openai/clip-vit-large-patch14
+
+preprocess = transforms.Compose([
+    transforms.Resize((224, 224), antialias=True),
+    transforms.Normalize(mean=[0.48145466, 0.4578275, 0.40821073],
+                         std=[0.26862954, 0.26130258, 0.27577711]),
+])
 
 def load_pipeline(ckpt_path, device='cuda:0'):
     pipe = DRCStableDiffusionInpaintPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
@@ -22,20 +29,19 @@ def load_pipeline(ckpt_path, device='cuda:0'):
     return pipe
 
 def get_reverse_denoise_results(pipe, dataloader, device,):
-
-    model_id = "models/diffusers/clip-vit-base-patch14"
-    processor = CLIPImageProcessor.from_pretrained(model_id)
-    model = CLIPTextModel.from_pretrained(model_id).to(device)
+    model_id = "../models/diffusers/clip-vit-large-patch14"
+    model = CLIPModel.from_pretrained(model_id).to(device)
 
     weight_dtype = torch.float32
     mean_l2 = 0
     scores, path_log = [], []
     for batch_idx, batch in enumerate(tqdm.tqdm(dataloader)):
         path_log.extend(batch['path'])
-        input_images = processor(images=batch['pixel_values'], return_tensors="pt").to(device)
-        latents, encoder_hidden_states, masks = pipe.prepare_inputs(batch, weight_dtype, device)
-        restored_images = pipe(mask_image=masks, prompt=None, latents=latents, prompt_embeds=encoder_hidden_states, \
+        input_images = preprocess(batch['pixel_values']).to(device)
+        images, encoder_hidden_states, masks = pipe.prepare_inputs(batch, weight_dtype, device)
+        restored_images = pipe(mask_image=masks, prompt=None, image=images, prompt_embeds=encoder_hidden_states, \
                        guidance_scale=1.0, num_inference_steps=50).images
+        restored_images = preprocess(restored_images).to(device)
 
         with torch.no_grad():
             x_0 = model.get_image_features(**input_images)
