@@ -9,4 +9,4 @@ from .pfami_pipeline_stable_diffusion import PFAMIStableDiffusionPipeline
 
 from .drc_dino_utils import *
 from .drc_dino_vision_transformer import *
-from .drc_pipeline_mask_prediction import *
+from .drc_pipeline_stable_diffusion_inpaint import DRCStableDiffusionInpaintPipeline

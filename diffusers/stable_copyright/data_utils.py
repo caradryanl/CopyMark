@@ -69,9 +69,10 @@ def collate_fn(examples):
     pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
     input_ids = torch.stack([example["input_ids"] for example in examples])
     path = [example["path"] for example in examples]
-    return {"pixel_values": pixel_values, "input_ids": input_ids, "path": path}
+    mask = [example["mask"] for example in examples]
+    return {"pixel_values": pixel_values, "input_ids": input_ids, "path": path, "mask": mask}
 
-class StandardTransform:
+class StandardTransform: 
     def __init__(self, transform: Optional[Callable] = None, target_transform: Optional[Callable] = None) -> None:
         self.transform = transform
         self.target_transform = target_transform
@@ -141,8 +142,15 @@ class Dataset(torch.utils.data.Dataset):
         return self.input_ids[id]
 
     def __getitem__(self, index: int):
-        path = os.path.join(self.img_root, self.dataset, 'images', self.img_info[index]['path'])
-        image = Image.open(path).convert("RGB")
+        img_name = self.img_info[index]['path']
+
+        # image
+        img_path = os.path.join(self.img_root, self.dataset, 'images', img_name)
+        image = Image.open(img_path).convert("RGB")
+
+        # mask
+        mask_path = os.path.join(self.img_root, self.dataset, 'masks', img_name[:-4]+'.npy')
+        mask = np.load(mask_path)
 
         input_id = self._load_input_id(index)
         caption = self.img_info[index]['caption'][0]
@@ -151,7 +159,7 @@ class Dataset(torch.utils.data.Dataset):
             image, input_id = StandardTransform(self.transforms, None)(image, input_id)
 
         # return image, target
-        return {"pixel_values": image, "input_ids": input_id, 'caption': caption, 'path': path}
+        return {"pixel_values": image, "input_ids": input_id, 'caption': caption, 'path': img_path, 'mask': mask}
 
 
 def load_dataset(dataset_root, ckpt_path, dataset: str='laion-aesthetic-2-5k', batch_size: int=6):
