@@ -407,8 +407,8 @@ class DRCStableDiffusionInpaintPipeline(
                 # concat latents, mask, masked_image_latents in the channel dimension
                 latent_model_input = self.scheduler.scale_model_input(latent_model_input, t)
 
-                if num_channels_unet == 9:
-                    latent_model_input = torch.cat([latent_model_input, mask, masked_image_latents], dim=1)
+                # if num_channels_unet == 9:
+                #     latent_model_input = torch.cat([latent_model_input, mask, masked_image_latents], dim=1)
 
                 # predict the noise residual
                 noise_pred = self.unet(
@@ -470,7 +470,7 @@ class DRCStableDiffusionInpaintPipeline(
             )[0]
         else:
             image = latents
-            
+
         do_denormalize = [True] * image.shape[0]
         image = self.image_processor.postprocess(image, output_type=output_type, do_denormalize=do_denormalize)
 
