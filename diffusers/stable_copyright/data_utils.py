@@ -177,20 +177,30 @@ class Dataset(torch.utils.data.Dataset):
 
 
 def load_dataset(dataset_root, ckpt_path, dataset: str='laion-aesthetic-2-5k', batch_size: int=6, model_type='sd'):
-    resolution = 512
-    transform = transforms.Compose(
-        [
-            transforms.Resize(resolution, interpolation=transforms.InterpolationMode.BILINEAR),
-            transforms.CenterCrop(resolution),
-            transforms.ToTensor(),
-            transforms.Normalize([0.5], [0.5]),
-        ]
-    )
+    
     if model_type != 'ldm':
+        resolution = 512
+        transform = transforms.Compose(
+            [
+                transforms.Resize(resolution, interpolation=transforms.InterpolationMode.BILINEAR),
+                transforms.CenterCrop(resolution),
+                transforms.ToTensor(),
+                transforms.Normalize([0.5], [0.5]),
+            ]
+        )
         tokenizer = CLIPTokenizer.from_pretrained(
             ckpt_path, subfolder="tokenizer", revision=None
         )
     else:
+        resolution = 256
+        transform = transforms.Compose(
+            [
+                transforms.Resize(resolution, interpolation=transforms.InterpolationMode.BILINEAR),
+                # transforms.CenterCrop(resolution),
+                transforms.ToTensor(),
+                transforms.Normalize([0.5], [0.5]),
+            ]
+        )
         tokenizer = None
 
     train_dataset = Dataset(
