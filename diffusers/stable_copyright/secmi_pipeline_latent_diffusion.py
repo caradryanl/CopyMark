@@ -20,17 +20,20 @@ from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import \
     )
 
 from .secmi_pipeline_stable_diffusion import SecMIStableDiffusionPipelineOutput
+from .secmi_scheduling_ddim import SecMIDDIMScheduler
 
 
 class SecMILatentDiffusionPipeline(
     DiffusionPipeline
 ):
     def __init__(self, unet, vae, scheduler, device, generator):
+        super().__init__()
+
         self.unet = unet
         self.vae = vae
         self.scheduler = scheduler
-        self.device = device
         self.generator = generator
+        self.execution_device = device
         
     @classmethod
     def from_pretrained(self, 
@@ -39,7 +42,7 @@ class SecMILatentDiffusionPipeline(
                         ):
         unet = UNet2DModel.from_pretrained(pretrained_model_name_or_path, subfolder="unet", torch_dtype=torch_dtype)
         vae = VQModel.from_pretrained(pretrained_model_name_or_path, subfolder="vqvae", torch_dtype=torch_dtype)
-        scheduler = DDIMScheduler.from_config(pretrained_model_name_or_path, subfolder="scheduler")
+        scheduler = SecMIDDIMScheduler.from_pretrained(pretrained_model_name_or_path, subfolder="scheduler")
 
         # cuda and seed
         device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -55,11 +58,10 @@ class SecMILatentDiffusionPipeline(
 
     @torch.no_grad()
     def prepare_inputs(self, batch, weight_dtype, device):
-        pixel_values, input_ids = batch["pixel_values"].to(weight_dtype), batch["input_ids"]
+        pixel_values = batch["pixel_values"].to(weight_dtype)
         if device == 'cuda':
-            pixel_values, input_ids = pixel_values.cuda(), input_ids.cuda()
-
-        latents = self.vae.encode(pixel_values)
+            pixel_values  = pixel_values.cuda()
+        latents = self.vae.encode(pixel_values)[0]
         encoder_hidden_states = None
 
         return latents, encoder_hidden_states
@@ -94,7 +96,7 @@ class SecMILatentDiffusionPipeline(
         **kwargs,
     ):
         
-        device = self.device
+        device = self.execution_device
         
         # 4. Prepare timesteps
         timesteps, num_inference_steps = retrieve_timesteps(self.scheduler, num_inference_steps, device, timesteps)
@@ -110,7 +112,7 @@ class SecMILatentDiffusionPipeline(
         original_latents = latents.detach().clone()
         for i, t in enumerate(timesteps): # from t_max to t_min
             noise = randn_tensor(original_latents.shape, generator=generator, device=device, dtype=original_latents.dtype)
-            posterior_latents = self.scheduler.add_noise(posterior_latents, noise, t)
+            posterior_latents = self.scheduler.add_noise(original_latents, noise, t)
             posterior_results.append(posterior_latents.detach().clone())
             # print(f"{t} timestep posterior: {torch.sum(posterior_latents)}")
 
@@ -118,6 +120,7 @@ class SecMILatentDiffusionPipeline(
         reverse_results = []
         for i, t in enumerate(timesteps):  # from t_max to t_min
             # predict the noise residual
+            latent_model_input = posterior_results[i]
             noise_pred = self.unet(
                 latent_model_input,
                 t,
@@ -128,13 +131,11 @@ class SecMILatentDiffusionPipeline(
             reverse_results.append(reverse_latents.detach().clone())
             
         # 7. Denoising loop
-        self._num_timesteps = len(timesteps)
         denoising_results = []
         unit_t = timesteps[0] - timesteps[1]
+        print(timesteps)
         with self.progress_bar(total=num_inference_steps) as progress_bar:
             for i, t in enumerate(timesteps):
-                if self.interrupt:
-                    continue
                 latents = reverse_results[i]
                 t = t + unit_t
                 # expand the latents if we are doing classifier free guidance
@@ -155,9 +156,12 @@ class SecMILatentDiffusionPipeline(
                 denoising_results.append(latents.detach().clone())
                 # print(f"{timesteps[i]} timestep denoising: {torch.sum(latents)}")
 
+                if i == len(timesteps) - 1 or ((i + 1) > 0 and (i + 1) % self.scheduler.order == 0):
+                    progress_bar.update()
+
         if not output_type == "latent":
             with torch.no_grad():
-                image = self.vae.decode(image)
+                image = self.vae.decode(latents)[0]
         else:
             image = latents
 

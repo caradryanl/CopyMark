@@ -20,7 +20,7 @@ def load_pipeline(ckpt_path, device='cuda:0', model_type='sd'):
         pipe = pipe.to(device)
     elif model_type == 'ldm':
         pipe = SecMILatentDiffusionPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
-        pipe.scheduler = SecMIDDIMScheduler.from_config(pipe.scheduler.config)
+        # pipe.scheduler = SecMIDDIMScheduler.from_config(pipe.scheduler.config)
     elif model_type == 'sdxl':
         raise NotImplementedError('SDXL not implemented yet')
     else:
@@ -83,8 +83,8 @@ def compute_corr_score(member_scores, nonmember_scores):
 def main(args):
     start_time = time.time()
 
-    _, holdout_loader = load_dataset(args.dataset_root, args.ckpt_path, args.holdout_dataset, args.batch_size)
-    _, member_loader = load_dataset(args.dataset_root, args.ckpt_path, args.member_dataset, args.batch_size)
+    _, holdout_loader = load_dataset(args.dataset_root, args.ckpt_path, args.holdout_dataset, args.batch_size, args.model_type)
+    _, member_loader = load_dataset(args.dataset_root, args.ckpt_path, args.member_dataset, args.batch_size, args.model_type)
 
     pipe = load_pipeline(args.ckpt_path, args.device, args.model_type)
 
@@ -130,12 +130,12 @@ def fix_seed(seed):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--member-dataset', default='laion-aesthetic-2-5k', choices=['laion-aesthetic-2-5k'])
-    parser.add_argument('--holdout-dataset', default='coco2017-val-2-5k', choices=['coco2017-val-2-5k'])
+    parser.add_argument('--member-dataset', default='laion-aesthetic-2-5k')
+    parser.add_argument('--holdout-dataset', default='coco2017-val-2-5k')
     parser.add_argument('--dataset-root', default='datasets/', type=str)
     parser.add_argument('--seed', type=int, default=10)
-    # parser.add_argument('--ckpt-path', type=str, default='../models/diffusers/stable-diffusion-v1-5/')
-    parser.add_argument('--ckpt-path', type=str, default='../models/diffusers/ldm-celebahq-256/')
+    parser.add_argument('--ckpt-path', type=str, default='../models/diffusers/stable-diffusion-v1-5/')
+    # parser.add_argument('--ckpt-path', type=str, default='../models/diffusers/ldm-celebahq-256/')
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--output', type=str, default='outputs/')
     parser.add_argument('--batch-size', type=int, default=10)

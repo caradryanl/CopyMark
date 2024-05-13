@@ -67,7 +67,10 @@ def benchmark(member_scores, nonmember_scores, experiment, output_path):
 def collate_fn(examples):
     pixel_values = torch.stack([example["pixel_values"] for example in examples])
     pixel_values = pixel_values.to(memory_format=torch.contiguous_format).float()
-    input_ids = torch.stack([example["input_ids"] for example in examples])
+    if examples[0]["input_ids"] == None:
+        input_ids = None
+    else:
+        input_ids = torch.stack([example["input_ids"] for example in examples])
     path = [example["path"] for example in examples]
     mask = [example["mask"] for example in examples]
     return {"pixel_values": pixel_values, "input_ids": input_ids, "path": path, "mask": mask}
@@ -128,18 +131,26 @@ class Dataset(torch.utils.data.Dataset):
 
     def _init_tokenize_captions(self):
         captions = []
+        flag = False
         for metadata in self.img_info:
-            caption = metadata['caption'][0]
-            captions.append(caption)
-
-        inputs = self.tokenizer(
-            captions, max_length=self.tokenizer.model_max_length, padding="max_length", truncation=True,
-            return_tensors="pt"
-        )
-        self.input_ids = inputs.input_ids
+            if len(metadata['caption'])==0:
+                captions.append(None)
+            else:
+                caption = metadata['caption'][0]
+                captions.append(caption)
+                flag=True
+        
+        if flag == False:
+            self.input_ids = None
+        else:
+            inputs = self.tokenizer(
+                captions, max_length=self.tokenizer.model_max_length, padding="max_length", truncation=True,
+                return_tensors="pt"
+            )
+            self.input_ids = inputs.input_ids
 
     def _load_input_id(self, id: int):
-        return self.input_ids[id]
+        return self.input_ids[id] if self.input_ids is not None else None
 
     def __getitem__(self, index: int):
         img_name = self.img_info[index]['path']
@@ -153,7 +164,10 @@ class Dataset(torch.utils.data.Dataset):
         mask = np.load(mask_path)
 
         input_id = self._load_input_id(index)
-        caption = self.img_info[index]['caption'][0]
+        if len(self.img_info[index]['caption']) == 0:
+            caption = None
+        else:
+            caption = self.img_info[index]['caption'][0]
 
         if self.transforms is not None:
             image, input_id = StandardTransform(self.transforms, None)(image, input_id)
@@ -162,7 +176,7 @@ class Dataset(torch.utils.data.Dataset):
         return {"pixel_values": image, "input_ids": input_id, 'caption': caption, 'path': img_name, 'mask': mask}
 
 
-def load_dataset(dataset_root, ckpt_path, dataset: str='laion-aesthetic-2-5k', batch_size: int=6):
+def load_dataset(dataset_root, ckpt_path, dataset: str='laion-aesthetic-2-5k', batch_size: int=6, model_type='sd'):
     resolution = 512
     transform = transforms.Compose(
         [
@@ -172,9 +186,13 @@ def load_dataset(dataset_root, ckpt_path, dataset: str='laion-aesthetic-2-5k', b
             transforms.Normalize([0.5], [0.5]),
         ]
     )
-    tokenizer = CLIPTokenizer.from_pretrained(
-        ckpt_path, subfolder="tokenizer", revision=None
-    )
+    if model_type != 'ldm':
+        tokenizer = CLIPTokenizer.from_pretrained(
+            ckpt_path, subfolder="tokenizer", revision=None
+        )
+    else:
+        tokenizer = None
+
     train_dataset = Dataset(
         dataset=dataset,
         img_root=dataset_root,

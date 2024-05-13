@@ -1,6 +1,7 @@
 import argparse
 import pandas as pd
 import json
+import os
 
 import requests
 from PIL import Image
@@ -14,25 +15,18 @@ def main(args):
     target = args.target
     num_images = args.num_images
     # Load Parquet file into a pandas DataFrame
-    df = pd.read_parquet(dataset)
-    print(df.info())
 
-    # 32600
+    img_dir = target + 'images/'
     caption = {}
-    for idx in range(num_images):
-        # print(df.iloc[0, 0])
-        # image_bytes = base64.b64decode(df.iloc[0, 0]['bytes'])
-        image_bytes = df.iloc[idx, 0]['bytes']
-        image = Image.open(BytesIO(image_bytes))
-        image = image.convert('RGB')  # Ensure it's in RGB mode for saving as JPEG
-        image.save(target + 'images/' + f'{idx}.png', 'PNG')
 
-        caption[idx] = {
-            "path": target + 'images/' + f'{idx}.png',
+    for img in os.listdir(img_dir):
+        caption[img[:-4]] = {
+            "path": img,
             "height": 256,
             "width": 256,
             "caption": []
         }
+            
     with open(target + 'caption.json', 'w') as file:
         json.dump(caption, file, indent=4)
     # with open(target + 'failure_download.json', 'w') as file:
