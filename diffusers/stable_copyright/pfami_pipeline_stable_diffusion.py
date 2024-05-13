@@ -248,6 +248,7 @@ class PFAMIStableDiffusionPipeline(
 
         # 4. Prepare timesteps
         timesteps, num_inference_steps = retrieve_timesteps(self.scheduler, num_inference_steps, device, timesteps)
+        attack_timesteps = [torch.tensor(attack_timestep).to(device=device) for attack_timestep in attack_timesteps]
 
         # 5. Prepare latent variables
         num_channels_latents = self.unet.config.in_channels
@@ -294,7 +295,7 @@ class PFAMIStableDiffusionPipeline(
         # num_warmup_steps = len(timesteps) - num_inference_steps * self.scheduler.order
         self._num_timesteps = len(attack_timesteps)
         denoising_results = []
-        unit_t = abs(attack_timesteps[0] - attack_timesteps[1])
+        unit_t = attack_timesteps[1] - attack_timesteps[0]
         with self.progress_bar(total=len(attack_timesteps)) as progress_bar:
             for i, t in enumerate(attack_timesteps):
                 if self.interrupt:
