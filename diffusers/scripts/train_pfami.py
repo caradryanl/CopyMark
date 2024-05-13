@@ -12,18 +12,18 @@ import argparse
 from copy import deepcopy
 import time, json
 
-from stable_copyright import PIAStableDiffusionPipeline, SecMIDDIMScheduler
+from stable_copyright import PFAMIStableDiffusionPipeline, SecMIDDIMScheduler
 from stable_copyright import load_dataset, benchmark
 
-def image_perturbation(image, strength):
+def image_perturbation(image, strength, image_size=512):
     perturbation = transforms.Compose([
-        transforms.CenterCrop(size=int(512 * strength)),
-        transforms.Resize(size=512, antialias=True),
+        transforms.CenterCrop(size=int(image_size * strength)),
+        transforms.Resize(size=image_size, antialias=True),
     ])
     return perturbation(image)
 
 def load_pipeline(ckpt_path, device='cuda:0'):
-    pipe = PIAStableDiffusionPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
+    pipe = PFAMIStableDiffusionPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
     pipe.scheduler = SecMIDDIMScheduler.from_config(pipe.scheduler.config)
     pipe = pipe.to(device)
     return pipe

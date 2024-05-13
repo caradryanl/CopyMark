@@ -9,14 +9,22 @@ import os
 import argparse
 import json,time
 
-from stable_copyright import PIAStableDiffusionPipeline, SecMIDDIMScheduler
+from stable_copyright import PIAStableDiffusionPipeline, SecMIDDIMScheduler, PIALatentDiffusionPipeline
 from stable_copyright import load_dataset, benchmark
 
 
-def load_pipeline(ckpt_path, device='cuda:0'):
-    pipe = PIAStableDiffusionPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
-    pipe.scheduler = SecMIDDIMScheduler.from_config(pipe.scheduler.config)
-    pipe = pipe.to(device)
+def load_pipeline(ckpt_path, device='cuda:0', model_type='sd'):
+    if model_type == 'ldm':
+        pipe = PIAStableDiffusionPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
+        pipe.scheduler = SecMIDDIMScheduler.from_config(pipe.scheduler.config)
+        pipe = pipe.to(device)
+    elif model_type == 'ldm':
+        pipe = PIALatentDiffusionPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
+        pipe.scheduler = SecMIDDIMScheduler.from_config(pipe.scheduler.config)
+    elif model_type == 'sdxl':
+        raise NotImplementedError('SDXL not implemented yet')
+    else:
+        raise NotImplementedError(f'Unrecognized model type {model_type}')
     return pipe
 
 # difference from secmi: we return the sum of intermediate differences here
@@ -82,7 +90,7 @@ def main(args):
     _, holdout_loader = load_dataset(args.dataset_root, args.ckpt_path, args.holdout_dataset, args.batch_size)
     _, member_loader = load_dataset(args.dataset_root, args.ckpt_path, args.member_dataset, args.batch_size)
 
-    pipe = load_pipeline(args.ckpt_path, args.device)
+    pipe = load_pipeline(args.ckpt_path, args.device, args.model_type)
 
     if args.normalized:
         pia_or_pian = 'pian'
@@ -95,17 +103,17 @@ def main(args):
             os.mkdir(args.output)
 
         member_scores_sum_step, member_scores_all_steps, member_path_log = get_reverse_denoise_results(pipe, member_loader, args.device, args.normalized)
-        torch.save(member_scores_all_steps, args.output + f'{pia_or_pian}_member_scores_all_steps.pth')
+        torch.save(member_scores_all_steps, args.output + f'{pia_or_pian}_{args.model_type}_member_scores_all_steps.pth')
 
         nonmember_scores_sum_step, nonmember_scores_all_steps, nonmember_path_log = get_reverse_denoise_results(pipe, holdout_loader, args.device, args.normalized)
-        torch.save(nonmember_scores_all_steps, args.output + f'{pia_or_pian}_nonmember_scores_all_steps.pth')
+        torch.save(nonmember_scores_all_steps, args.output + f'{pia_or_pian}_{args.model_type}_nonmember_scores_all_steps.pth')
 
         member_corr_scores, nonmember_corr_scores = compute_corr_score(member_scores_all_steps, nonmember_scores_all_steps)
         
-        benchmark(member_scores_sum_step, nonmember_scores_sum_step, f'{pia_or_pian}_sum_score', args.output)
-        benchmark(member_corr_scores, nonmember_corr_scores, f'{pia_or_pian}_corr_score', args.output)
+        benchmark(member_scores_sum_step, nonmember_scores_sum_step, f'{pia_or_pian}_{args.model_type}_sum_score', args.output)
+        benchmark(member_corr_scores, nonmember_corr_scores, f'{pia_or_pian}_{args.model_type}_corr_score', args.output)
 
-        with open(args.output + f'{pia_or_pian}_image_log.json', 'w') as file:
+        with open(args.output + f'{pia_or_pian}_{args.model_type}_image_log.json', 'w') as file:
             json.dump(dict(member=member_path_log, nonmember=nonmember_path_log), file, indent=4)
 
     else:
@@ -115,7 +123,7 @@ def main(args):
     elapsed_time = end_time - start_time
     running_time = dict(running_time=elapsed_time)
     
-    with open(args.output + f'{pia_or_pian}_running_time.json', 'w') as file:
+    with open(args.output + f'{pia_or_pian}_{args.model_type}_running_time.json', 'w') as file:
         json.dump(running_time, file, indent=4)
     
 
@@ -135,12 +143,15 @@ if __name__ == '__main__':
     parser.add_argument('--holdout-dataset', default='coco2017-val-2-5k', choices=['coco2017-val-2-5k'])
     parser.add_argument('--dataset-root', default='datasets/', type=str)
     parser.add_argument('--seed', type=int, default=10)
-    parser.add_argument('--ckpt-path', type=str, default='../models/diffusers/stable-diffusion-v1-5/')
+    # parser.add_argument('--ckpt-path', type=str, default='../models/diffusers/stable-diffusion-v1-5/')
+    parser.add_argument('--ckpt-path', type=str, default='../models/diffusers/ldm-celebahq-256/')
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--output', type=str, default='outputs/')
     parser.add_argument('--batch-size', type=int, default=10)
     parser.add_argument('--use-ddp', type=bool, default=False)
     parser.add_argument('--normalized', type=bool, default=False)
+    parser.add_argument('--model-type', type=str, choices=['sd', 'sdxl', 'ldm'], default='sd')
+    parser.add_argument('--demo', type=bool, default=False)
     args = parser.parse_args()
 
     fix_seed(args.seed)

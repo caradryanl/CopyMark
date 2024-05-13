@@ -5,7 +5,7 @@ from .secmi_scheduling_ddim import SecMIDDIMScheduler
 from .secmi_pipeline_latent_diffusion import SecMILatentDiffusionPipeline
 
 from .pia_pipeline_stable_diffusion import PIAStableDiffusionPipeline
-from .pia_pipeline_latent_diffusion import *
+from .pia_pipeline_latent_diffusion import PIALatentDiffusionPipeline
 from .pia_pipeline_sdxl import *
 
 from .pfami_pipeline_stable_diffusion import PFAMIStableDiffusionPipeline
