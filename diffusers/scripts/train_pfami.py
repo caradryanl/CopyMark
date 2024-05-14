@@ -12,7 +12,7 @@ import argparse
 from copy import deepcopy
 import time, json
 
-from stable_copyright import PFAMIStableDiffusionPipeline, SecMIDDIMScheduler
+from stable_copyright import PFAMIStableDiffusionPipeline, SecMIDDIMScheduler, PFAMILatentDiffusionPipeline
 from stable_copyright import load_dataset, benchmark
 
 def image_perturbation(image, strength, image_size=512):
@@ -22,14 +22,22 @@ def image_perturbation(image, strength, image_size=512):
     ])
     return perturbation(image)
 
-def load_pipeline(ckpt_path, device='cuda:0'):
-    pipe = PFAMIStableDiffusionPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
-    pipe.scheduler = SecMIDDIMScheduler.from_config(pipe.scheduler.config)
-    pipe = pipe.to(device)
+def load_pipeline(ckpt_path, device='cuda:0', model_type='sd'):
+    if model_type == 'sd':
+        pipe = PFAMIStableDiffusionPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
+        pipe.scheduler = SecMIDDIMScheduler.from_config(pipe.scheduler.config)
+        pipe = pipe.to(device)
+    elif model_type == 'ldm':
+        pipe = PFAMILatentDiffusionPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
+        # pipe.scheduler = SecMIDDIMScheduler.from_config(pipe.scheduler.config)
+    elif model_type == 'sdxl':
+        raise NotImplementedError('SDXL not implemented yet')
+    else:
+        raise NotImplementedError(f'Unrecognized model type {model_type}')
     return pipe
 
 # difference from secmi: we return the sum of intermediate differences here
-def get_reverse_denoise_results(pipe, dataloader, device, strengths):
+def get_reverse_denoise_results(pipe, dataloader, device, strengths, demo):
     weight_dtype = torch.float32
     mean_l2 = 0
     scores_sum, scores_all_steps, path_log, = [], [], []
@@ -92,8 +100,8 @@ def get_reverse_denoise_results(pipe, dataloader, device, strengths):
         mean_l2 += scores_sum[-1].item()
         print(f'[{batch_idx}/{len(dataloader)}] mean l2-sum: {mean_l2 / (batch_idx + 1):.8f}')
 
-        # if batch_idx > 0:
-        #     break
+        if demo and batch_idx > 0:
+            break
 
     return torch.stack(scores_sum, dim=0), torch.stack(scores_all_steps, dim=0), path_log
 
@@ -121,10 +129,10 @@ def compute_corr_score(member_scores, nonmember_scores):
 def main(args):
     start_time = time.time()
 
-    _, holdout_loader = load_dataset(args.dataset_root, args.ckpt_path, args.holdout_dataset, args.batch_size)
-    _, member_loader = load_dataset(args.dataset_root, args.ckpt_path, args.member_dataset, args.batch_size)
+    _, holdout_loader = load_dataset(args.dataset_root, args.ckpt_path, args.holdout_dataset, args.batch_size, args.model_type)
+    _, member_loader = load_dataset(args.dataset_root, args.ckpt_path, args.member_dataset, args.batch_size, args.model_type)
 
-    pipe = load_pipeline(args.ckpt_path, args.device)
+    pipe = load_pipeline(args.ckpt_path, args.device, args.model_type)
 
     strengths = np.linspace(args.start_strength, args.end_strength, args.perturbation_number)
 
@@ -133,18 +141,18 @@ def main(args):
         if not os.path.exists(args.output):
             os.mkdir(args.output)
 
-        member_scores_sum_step, member_scores_all_steps, member_path_log = get_reverse_denoise_results(pipe, member_loader, args.device, strengths)
-        torch.save(member_scores_all_steps, args.output + 'pfami_member_scores_all_steps.pth')
+        member_scores_sum_step, member_scores_all_steps, member_path_log = get_reverse_denoise_results(pipe, member_loader, args.device, strengths, args.demo)
+        torch.save(member_scores_all_steps, args.output + f'pfami_{args.model_type}_member_scores_all_steps.pth')
 
-        nonmember_scores_sum_step, nonmember_scores_all_steps, nonmember_path_log = get_reverse_denoise_results(pipe, holdout_loader, args.device, strengths)
-        torch.save(nonmember_scores_all_steps, args.output + 'pfami_nonmember_scores_all_steps.pth')
+        nonmember_scores_sum_step, nonmember_scores_all_steps, nonmember_path_log = get_reverse_denoise_results(pipe, holdout_loader, args.device, strengths, args.demo)
+        torch.save(nonmember_scores_all_steps, args.output + f'pfami_{args.model_type}_nonmember_scores_all_steps.pth')
 
         member_corr_scores, nonmember_corr_scores = compute_corr_score(member_scores_all_steps, nonmember_scores_all_steps)
         
-        benchmark(member_scores_sum_step, nonmember_scores_sum_step, 'pfami_sum_score', args.output)
-        benchmark(member_corr_scores, nonmember_corr_scores, 'pfami_corr_score', args.output)
+        benchmark(member_scores_sum_step, nonmember_scores_sum_step, f'pfami_{args.model_type}_sum_score', args.output)
+        benchmark(member_corr_scores, nonmember_corr_scores, f'pfami_{args.model_type}_corr_score', args.output)
 
-        with open(args.output + 'pfami_image_log.json', 'w') as file:
+        with open(args.output + f'pfami_{args.model_type}_image_log.json', 'w') as file:
             json.dump(dict(member=member_path_log, nonmember=nonmember_path_log), file, indent=4)
 
     else:
@@ -154,7 +162,7 @@ def main(args):
     elapsed_time = end_time - start_time
     running_time = dict(running_time=elapsed_time)
     
-    with open(args.output + 'pfami_running_time.json', 'w') as file:
+    with open(args.output + f'pfami_{args.model_type}_running_time.json', 'w') as file:
         json.dump(running_time, file, indent=4)
 
     
@@ -171,8 +179,8 @@ def fix_seed(seed):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--member-dataset', default='laion-aesthetic-2-5k', choices=['laion-aesthetic-2-5k'])
-    parser.add_argument('--holdout-dataset', default='coco2017-val-2-5k', choices=['coco2017-val-2-5k'])
+    parser.add_argument('--member-dataset', default='laion-aesthetic-2-5k')
+    parser.add_argument('--holdout-dataset', default='coco2017-val-2-5k')
     parser.add_argument('--dataset-root', default='datasets/', type=str)
     parser.add_argument('--seed', type=int, default=10)
     parser.add_argument('--ckpt-path', type=str, default='../models/diffusers/stable-diffusion-v1-5/')
@@ -184,6 +192,8 @@ if __name__ == '__main__':
     parser.add_argument('--perturbation-number', type=int, default=10)
     parser.add_argument('--start-strength', type=float, default=0.95)
     parser.add_argument('--end-strength', type=float, default=0.7)
+    parser.add_argument('--model-type', type=str, choices=['sd', 'sdxl', 'ldm'], default='sd')
+    parser.add_argument('--demo', type=bool, default=False)
     args = parser.parse_args()
 
     fix_seed(args.seed)

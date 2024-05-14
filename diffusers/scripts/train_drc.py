@@ -12,7 +12,7 @@ from torchvision import transforms
 from PIL import Image
 
 
-from stable_copyright import benchmark, collate_fn, Dataset, DRCStableDiffusionInpaintPipeline
+from stable_copyright import benchmark, collate_fn, Dataset, DRCStableDiffusionInpaintPipeline, DRCLatentDiffusionPipeline
 from diffusers.schedulers.scheduling_ddim import DDIMScheduler
 from transformers import CLIPModel, CLIPImageProcessor, CLIPTokenizer
 
@@ -24,19 +24,29 @@ preprocess = transforms.Compose([
                          std=[0.26862954, 0.26130258, 0.27577711]),
 ])
 
-def load_dataset_drc(dataset_root, ckpt_path, dataset: str='laion-aesthetic-2-5k', batch_size: int=6):
-    resolution = 512
-    transform = transforms.Compose(
-        [
-            transforms.Resize(resolution, interpolation=transforms.InterpolationMode.BILINEAR),
-            transforms.CenterCrop(resolution),
-            transforms.ToTensor(),
-            # transforms.Normalize([0.5], [0.5]), Do not need to normalize for inpainting
-        ]
-    )
-    tokenizer = CLIPTokenizer.from_pretrained(
-        ckpt_path, subfolder="tokenizer", revision=None
-    )
+def load_dataset_drc(dataset_root, ckpt_path, dataset: str='laion-aesthetic-2-5k', batch_size: int=6, model_type: str='sd'):
+    if model_type != 'ldm':
+        resolution = 512
+        transform = transforms.Compose(
+            [
+                transforms.Resize(resolution, interpolation=transforms.InterpolationMode.BILINEAR),
+                transforms.CenterCrop(resolution),
+                transforms.ToTensor(),
+            ]
+        )
+        tokenizer = CLIPTokenizer.from_pretrained(
+            ckpt_path, subfolder="tokenizer", revision=None
+        )
+    else:
+        resolution = 256
+        transform = transforms.Compose(
+            [
+                transforms.Resize(resolution, interpolation=transforms.InterpolationMode.BILINEAR),
+                # transforms.CenterCrop(resolution),
+                transforms.ToTensor(),
+            ]
+        )
+        tokenizer = None
     train_dataset = Dataset(
         dataset=dataset,
         img_root=dataset_root,
@@ -47,13 +57,21 @@ def load_dataset_drc(dataset_root, ckpt_path, dataset: str='laion-aesthetic-2-5k
     )
     return train_dataset, train_dataloader
 
-def load_pipeline(ckpt_path, device='cuda:0'):
-    pipe = DRCStableDiffusionInpaintPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
-    pipe.scheduler = DDIMScheduler.from_config(pipe.scheduler.config)
-    pipe = pipe.to(device)
+def load_pipeline(ckpt_path, device='cuda:0', model_type='sd'):
+    if model_type == 'sd':
+        pipe = DRCStableDiffusionInpaintPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
+        pipe.scheduler = DDIMScheduler.from_config(pipe.scheduler.config)
+        pipe = pipe.to(device)
+    elif model_type == 'ldm':
+        pipe = DRCLatentDiffusionPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
+        # pipe.scheduler = SecMIDDIMScheduler.from_config(pipe.scheduler.config)
+    elif model_type == 'sdxl':
+        raise NotImplementedError('SDXL not implemented yet')
+    else:
+        raise NotImplementedError(f'Unrecognized model type {model_type}')
     return pipe
 
-def get_reverse_denoise_results(pipe, dataloader, device, output_path, mem_or_nonmem):
+def get_reverse_denoise_results(pipe, dataloader, device, output_path, mem_or_nonmem, demo):
     model_id = "../models/diffusers/clip-vit-large-patch14"
     model = CLIPModel.from_pretrained(model_id).to(device)
 
@@ -101,8 +119,8 @@ def get_reverse_denoise_results(pipe, dataloader, device, output_path, mem_or_no
         mean_l2 += scores[-1]
         print(f'[{batch_idx}/{len(dataloader)}] mean l2-sum: {mean_l2 / (batch_idx + 1):.8f}')
 
-        # if batch_idx > 8:
-        #     break
+        if demo and batch_idx > 0:
+            break
 
     return torch.stack(scores, dim=0), path_log
 
@@ -130,25 +148,25 @@ def compute_corr_score(member_scores, nonmember_scores):
 def main(args):
     start_time = time.time()
 
-    _, holdout_loader = load_dataset_drc(args.dataset_root, args.ckpt_path, args.holdout_dataset, args.batch_size)
-    _, member_loader = load_dataset_drc(args.dataset_root, args.ckpt_path, args.member_dataset, args.batch_size)
+    _, holdout_loader = load_dataset_drc(args.dataset_root, args.ckpt_path, args.holdout_dataset, args.batch_size, args.model_type)
+    _, member_loader = load_dataset_drc(args.dataset_root, args.ckpt_path, args.member_dataset, args.batch_size, args.model_type)
 
-    pipe = load_pipeline(args.ckpt_path, args.device)
+    pipe = load_pipeline(args.ckpt_path, args.device, args.model_type)
 
     if not args.use_ddp:
 
         if not os.path.exists(args.output):
             os.mkdir(args.output)
 
-        member_scores, member_path_log = get_reverse_denoise_results(pipe, member_loader, args.device, args.output, 'member')
-        torch.save(member_scores, args.output + 'member_scores.pth')
+        member_scores, member_path_log = get_reverse_denoise_results(pipe, member_loader, args.device, args.output, 'member', args.demo)
+        torch.save(member_scores, args.output + f'drc_{args.model_type}_member_scores.pth')
 
-        nonmember_scores, nonmember_path_log = get_reverse_denoise_results(pipe, holdout_loader, args.device, args.output, 'nonmember')
-        torch.save(nonmember_scores, args.output + 'nonmember_scores.pth')
+        nonmember_scores, nonmember_path_log = get_reverse_denoise_results(pipe, holdout_loader, args.device, args.output, 'nonmember', args.demo)
+        torch.save(nonmember_scores, args.output + f'drc_{args.model_type}_nonmember_scores.pth')
         
-        benchmark(member_scores, nonmember_scores, 'drc_score', args.output)
+        benchmark(member_scores, nonmember_scores, f'drc_{args.model_type}_score', args.output)
 
-        with open(args.output + 'drc_image_log.json', 'w') as file:
+        with open(args.output + f'drc_{args.model_type}_image_log.json', 'w') as file:
             json.dump(dict(member=member_path_log, nonmember=nonmember_path_log), file, indent=4)
 
     else:
@@ -158,7 +176,7 @@ def main(args):
     elapsed_time = end_time - start_time
     running_time = dict(running_time=elapsed_time)
     
-    with open(args.output + 'drc_running_time.json', 'w') as file:
+    with open(args.output + f'drc_{args.model_type}_running_time.json', 'w') as file:
         json.dump(running_time, file, indent=4)
     
 
@@ -174,8 +192,8 @@ def fix_seed(seed):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--member-dataset', default='laion-aesthetic-2-5k', choices=['laion-aesthetic-2-5k'])
-    parser.add_argument('--holdout-dataset', default='coco2017-val-2-5k', choices=['coco2017-val-2-5k'])
+    parser.add_argument('--member-dataset', default='laion-aesthetic-2-5k')
+    parser.add_argument('--holdout-dataset', default='coco2017-val-2-5k')
     parser.add_argument('--dataset-root', default='datasets/', type=str)
     parser.add_argument('--seed', type=int, default=10)
     parser.add_argument('--ckpt-path', type=str, default='../models/diffusers/stable-diffusion-v1-5/')
@@ -183,6 +201,8 @@ if __name__ == '__main__':
     parser.add_argument('--output', type=str, default='outputs/')
     parser.add_argument('--batch-size', type=int, default=5)
     parser.add_argument('--use-ddp', type=bool, default=False)
+    parser.add_argument('--model-type', type=str, choices=['sd', 'sdxl', 'ldm'], default='sd')
+    parser.add_argument('--demo', type=bool, default=False)
     args = parser.parse_args()
 
     fix_seed(args.seed)
