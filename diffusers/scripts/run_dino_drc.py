@@ -106,11 +106,11 @@ if __name__ == '__main__':
     parser.add_argument("--checkpoint_key", default="teacher", type=str,
         help='Key to use in the checkpoint (example: "teacher")')
     # parser.add_argument("--image_path", default='datasets/coco2017-val-2-5k/images/', type=str, help="Path of the image to load.")
-    parser.add_argument("--image_path", default='datasets/laion-aesthetic-2-5k/images/', type=str, help="Path of the image to load.")
+    parser.add_argument("--image_path", default='datasets/drc_mask_examples/images', type=str, help="Path of the image to load.")
     parser.add_argument("--image_size", default=(480, 480), type=int, nargs="+", help="Resize image.")
-    parser.add_argument("--mask_size", default=(512, 512), type=int, nargs="+", help="Resize image.")
+    parser.add_argument("--mask_size", default=(256, 256), type=int, nargs="+", help="Resize image.")
     # parser.add_argument('--output_dir', default='datasets/coco2017-val-2-5k/masks/', help='Path where to save visualizations.')
-    parser.add_argument('--output_dir', default='datasets/laion-aesthetic-2-5k/masks/', help='Path where to save visualizations.')
+    parser.add_argument('--output_dir', default='datasets/drc_mask_examples/masks', help='Path where to save visualizations.')
     parser.add_argument("--threshold", type=float, default=80, help="""We visualize masks
         obtained by thresholding the self-attention maps to keep xx% of the mass.""")
     args = parser.parse_args()
@@ -197,31 +197,30 @@ if __name__ == '__main__':
 
         attentions = attentions.reshape(nh, w_featmap, h_featmap)
         mask = nn.functional.interpolate(attentions.unsqueeze(0), size=(args.mask_size), mode="nearest")[0].cpu().numpy()
-        mask = sum(
-                mask[i] * 1 / mask.shape[0]
-                for i in range(mask.shape[0])
-            )
+        mask = mask[-1]
         threshold = np.percentile(mask, args.threshold)
         mask = np.where(mask >= threshold, 1, 0)
-        # print(mask.shape)
+        print(mask.size, mask.sum())
         attentions = nn.functional.interpolate(attentions.unsqueeze(0), scale_factor=args.patch_size, mode="nearest")[0].cpu().numpy()
 
         # save attentions heatmaps
         os.makedirs(args.output_dir, exist_ok=True)
         # torchvision.utils.save_image(torchvision.utils.make_grid(img, normalize=True, scale_each=True), os.path.join(args.output_dir, "img.png"))
         # for j in range(nh):
-        #     fname = os.path.join(args.output_dir, "attn-head" + str(j) + ".png")
-        #     plt.imsave(fname=fname, arr=attentions[j], format='png')
-        #     print(f"{fname} saved.")
+        #     if j == nh - 1:
+        #         fname = os.path.join(args.output_dir, "attn-head" + str(j) + img_name[:-4] + ".png")
+        #         plt.imsave(fname=fname, arr=attentions[j], format='png')
+        #         print(f"{fname} saved.")
 
         fname = os.path.join(args.output_dir, img_name[:-4]+'.npy')
+        np.save(fname, mask)
         # plt.imsave(
-        #     fname=fname,
+        #     fname=fname[:-4]+'.jpg',
         #     arr=mask,
-        #     cmap="plasma",
+        #     cmap='Greys',
         #     format="jpg",
         # )
-        np.save(fname, mask)
+        
 
     # if args.threshold is not None:
     #     image = skimage.io.imread(os.path.join(args.output_dir, "img.png"))
