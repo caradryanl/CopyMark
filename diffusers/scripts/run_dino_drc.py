@@ -21,6 +21,7 @@ import random
 import colorsys
 import requests
 from io import BytesIO
+import tqdm
 
 import skimage.io
 from skimage.measure import find_contours
@@ -152,7 +153,7 @@ if __name__ == '__main__':
             print("There is no reference weights available for this model => We use random weights.")
 
     # open image
-    for img_name in os.listdir(args.image_path):
+    for img_name in tqdm.tqdm(os.listdir(args.image_path)):
         img_path = os.path.join(args.image_path, img_name)
         if os.path.isfile(img_path):
             with open(img_path, 'rb') as f:
@@ -186,7 +187,6 @@ if __name__ == '__main__':
         mask = mask[-1]
         threshold = np.percentile(mask, args.threshold)
         mask = np.where(mask >= threshold, 1, 0)
-        print(mask.size, mask.sum())
         attentions = nn.functional.interpolate(attentions.unsqueeze(0), scale_factor=args.patch_size, mode="nearest")[0].cpu().numpy()
 
         # save attentions heatmaps
