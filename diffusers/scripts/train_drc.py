@@ -89,12 +89,12 @@ def get_reverse_denoise_results(pipe, dataloader, device, output_path, mem_or_no
         images, encoder_hidden_states, masks = pipe.prepare_inputs(batch, weight_dtype, device)
         restored_images = pipe(mask_image=masks, prompt=None, image=images, prompt_embeds=encoder_hidden_states, \
                        guidance_scale=1.0, num_inference_steps=50, output_type='pt').images   # tensor
-        restored_images = restored_images.detach().clone()
+        restored_images = restored_images.detach().clone().clamp(0, 1)
 
         # store the image
         for idx, file_name in enumerate(batch['path']):
             log_image = torch.cat([original_images[idx, ...], restored_images[idx, ...]], dim=-1)
-            log_image = (log_image.detach().clone().cpu().permute(1, 2, 0).numpy() * 255.0).astype(np.uint8)
+            log_image = (log_image.detach().clone().cpu().permute(1, 2, 0).clamp(0, 1).numpy() * 255.0).astype(np.uint8)
             log_image = Image.fromarray(log_image, mode='RGB')
 
             log_path = os.path.join(log_root, file_name)
@@ -114,6 +114,7 @@ def get_reverse_denoise_results(pipe, dataloader, device, output_path, mem_or_no
             cosine_sim = torch.sum(x_0 * x_1, dim=-1) / (torch.norm(x_0, 2, dim=-1) * torch.norm(x_1, 2, dim=-1)) 
             # print(cosine_sim.shape)
             for score in cosine_sim:
+                score = -1.0 * score
                 scores.append(score.detach().clone().cpu())
         
         mean_l2 += scores[-1]

@@ -335,6 +335,7 @@ class DRCStableDiffusionInpaintPipeline(
             latents, noise = latents_outputs
 
         # 7. Prepare mask latent variables
+        # mainly do normalization and resizing
         mask_condition = self.mask_processor.preprocess(
             mask_image, height=height, width=width, resize_mode=resize_mode, crops_coords=crops_coords
         )

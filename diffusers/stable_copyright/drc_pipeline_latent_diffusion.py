@@ -34,7 +34,7 @@ class DRCLatentDiffusionPipeline(
         self.generator = generator
         self.execution_device = device
 
-        self.vae_scale_factor = 2 ** (len(self.vae.block_out_channels) - 1)
+        self.vae_scale_factor = 2 ** (len(self.vae.config.block_out_channels) - 1)
         self.image_processor = VaeImageProcessor(vae_scale_factor=self.vae_scale_factor)
         self.mask_processor = VaeImageProcessor(
             vae_scale_factor=self.vae_scale_factor, do_normalize=False, do_binarize=True, do_convert_grayscale=True
@@ -149,7 +149,7 @@ class DRCLatentDiffusionPipeline(
         generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
         output_type: Optional[str] = "pil",
         return_dict: bool = True,
-        attack_timesteps: List[int] = [0, 50, 100, 150, 200, 250, 300, 350, 400, 450],
+        strength: float=1.0,
         normalized: bool=False,
         prompt: Optional[Union[str, List[str]]] = None,
         guidance_scale: float = 7.5,
@@ -161,11 +161,12 @@ class DRCLatentDiffusionPipeline(
         
         # 4. Prepare timesteps
         timesteps, num_inference_steps = retrieve_timesteps(self.scheduler, num_inference_steps, device, timesteps)
-        attack_timesteps = [torch.tensor(attack_timestep).to(device=device) for attack_timestep in attack_timesteps]
+        timesteps, num_inference_steps = self.get_timesteps(
+            num_inference_steps=num_inference_steps, strength=strength, device=device
+        )
 
         crops_coords = None
         resize_mode = "default"
-        original_image = image.detach().clone()
         init_image = self.image_processor.preprocess(
             image, height=256, width=256, crops_coords=crops_coords, resize_mode=resize_mode
         )
@@ -187,10 +188,9 @@ class DRCLatentDiffusionPipeline(
         mask_condition = self.mask_processor.preprocess(
             mask_image, height=256, width=256, resize_mode=resize_mode, crops_coords=crops_coords
         )
+        # print(mask_condition.shape, mask_condition.min(), mask_condition.max(), mask_condition.sum(), mask_condition.numel())
         masked_image = init_image * (mask_condition < 0.5)
-
-
-        mask_condition = mask_condition.to(dtype=masked_image.dtype)
+        mask_condition = mask_condition.to(dtype=init_image.dtype)
         mask, _ = self.prepare_mask_latents(
             mask_condition,
             masked_image,
@@ -200,10 +200,9 @@ class DRCLatentDiffusionPipeline(
             device,
             generator,
         )
+        print(mask.shape, mask.min(), mask.max(), mask.sum(), mask.numel())
             
         # 7. Denoising loop
-        denoising_results = []
-        unit_t = timesteps[0] - timesteps[1]
         with self.progress_bar(total=num_inference_steps) as progress_bar:
             for i, t in enumerate(timesteps):
                 # expand the latents if we are doing classifier free guidance
@@ -216,7 +215,6 @@ class DRCLatentDiffusionPipeline(
                     )[0]
 
                 # compute the previous noisy sample x_t -> x_t-1
-                denoising_results.append(noise_pred.detach().clone())
                 latents = self.scheduler.step(noise_pred, t, latents, return_dict=False)[0]
                 
                 init_latents_proper = image_latents
