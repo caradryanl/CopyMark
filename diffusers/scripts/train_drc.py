@@ -71,11 +71,11 @@ def load_pipeline(ckpt_path, device='cuda:0', model_type='sd'):
         raise NotImplementedError(f'Unrecognized model type {model_type}')
     return pipe
 
-def get_reverse_denoise_results(pipe, dataloader, device, output_path, mem_or_nonmem, demo):
+def get_reverse_denoise_results(pipe, dataloader, device, output_path, mem_or_nonmem, model_type, demo):
     model_id = "../models/diffusers/clip-vit-large-patch14"
     model = CLIPModel.from_pretrained(model_id).to(device)
 
-    log_root = output_path + f'{mem_or_nonmem}_restored'
+    log_root = output_path + f'drc_{model_type}_{mem_or_nonmem}_restored'
     if not os.path.exists(log_root):
         os.mkdir(log_root)
 
@@ -159,10 +159,10 @@ def main(args):
         if not os.path.exists(args.output):
             os.mkdir(args.output)
 
-        member_scores, member_path_log = get_reverse_denoise_results(pipe, member_loader, args.device, args.output, 'member', args.demo)
+        member_scores, member_path_log = get_reverse_denoise_results(pipe, member_loader, args.device, args.output, 'member', args.model_type, args.demo)
         torch.save(member_scores, args.output + f'drc_{args.model_type}_member_scores.pth')
 
-        nonmember_scores, nonmember_path_log = get_reverse_denoise_results(pipe, holdout_loader, args.device, args.output, 'nonmember', args.demo)
+        nonmember_scores, nonmember_path_log = get_reverse_denoise_results(pipe, holdout_loader, args.device, args.output, 'nonmember', args.model_type, args.demo)
         torch.save(nonmember_scores, args.output + f'drc_{args.model_type}_nonmember_scores.pth')
         
         benchmark(member_scores, nonmember_scores, f'drc_{args.model_type}_score', args.output)
