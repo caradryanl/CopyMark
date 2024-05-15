@@ -12,8 +12,8 @@ def list_files_with_extension(directory, extension):
     
     # Get a list of all files with the given extension
     files = glob.glob(os.path.join(directory, '**', '*' + extension), recursive=True)
-    
-    return files
+    filenames = [os.path.basename(file) for file in files]
+    return filenames
 
 
 if __name__ == "__main__":
@@ -39,6 +39,7 @@ if __name__ == "__main__":
         if cnt == num_samples:
             with open(target_datasets[0] + 'caption.json', 'w') as file:
                 json.dump(caption, file, indent=4)
+            caption = {}
 
         id = member_file[:-5]
         txt_file = id + '.txt'
@@ -57,11 +58,11 @@ if __name__ == "__main__":
     with open(target_datasets[1] + 'caption.json', 'w') as file:
         json.dump(caption, file, indent=4)
         
-    # select hakubooru-member
+    # select hakubooru-nonmember
     nonmember_dataset = 'datasets/danbooru2023/images_nonmember/'
     target_datasets = ['datasets/hakubooru-2-5k-nonmember/', 'datasets/hakubooru-2-5k-eval-nonmember/']
     nonmember_files = list_files_with_extension(nonmember_dataset, '.webp')
-    print(f"number of members: {len(member_files)}")
+    print(f"number of nonmembers: {len(nonmember_files)}")
     cnt = 0
     caption = {}
     for nonmember_file in nonmember_files:
@@ -75,6 +76,7 @@ if __name__ == "__main__":
         if cnt == num_samples:
             with open(target_datasets[0] + 'caption.json', 'w') as file:
                 json.dump(caption, file, indent=4)
+            caption = {}
 
         id = nonmember_file[:-5]
         txt_file = id + '.txt'

@@ -15,9 +15,6 @@ if __name__ == "__main__":
     logger.info("Loading danbooru2023.db")
     load_db("datasets/danbooru2023/metadata/danbooru2023.db")
 
-    num_samples = 10
-
-
     logger.info("Querying posts")
     # Querying posts for:
     # All the post after 5_000_000
@@ -25,15 +22,12 @@ if __name__ == "__main__":
     # 1/3 of the post before 3_000_000
     # Use seed_everything(1) to make the result reproducible
     seed_everything(1)
-    member_choosed_post = (
+    choosed_post = (
         list(Post.select().where(Post.id >= 5_000_000))
         + choices(
             Post.select().where(Post.id < 5_000_000, Post.id >= 3_000_000), k=1_000_000
         )
         + choices(Post.select().where(Post.id < 3_000_000), k=1_000_000)
-    )
-    nonmember_choosed_post = (
-        [item for item in list(Post.select().where(Post.id < 5_000_000)) if item not in member_choosed_post]
     )
 
     logger.info(f"Build exporter for members")
@@ -41,19 +35,23 @@ if __name__ == "__main__":
         source=TarSource("datasets/danbooru2023/data"),
         saver=FileSaver("datasets/danbooru2023/images_member"),
         captioner=KohakuCaptioner(),
-        process_batch_size=100000,
+        process_batch_size=1000,
         process_threads=2,
     )
-    logger.info(f"Found {len(member_choosed_post)} posts")
+    logger.info(f"Found {len(choosed_post)} posts")
     logger.info(f"Exporting images for members")
-    exporter.export_posts(member_choosed_post)
+    exporter.export_posts(choosed_post)
+
+    nonmember_choosed_post = (
+        list(set(list(Post.select().where(Post.id < 5_000_000))) - set(choosed_post))
+    )
 
     logger.info(f"Build exporter for non-members")
     exporter = Exporter(
         source=TarSource("datasets/danbooru2023/data"),
         saver=FileSaver("datasets/danbooru2023/images_nonmember"),
         captioner=KohakuCaptioner(),
-        process_batch_size=100000,
+        process_batch_size=1000,
         process_threads=2,
     )
     logger.info(f"Found {len(nonmember_choosed_post)} posts")
