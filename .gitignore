@@ -35,3 +35,4 @@ diffusers/outputs/*
 !diffusers/experiments/secmi_random/*
 !diffusers/experiments/pia/*
 diffusers/datasets/*
+!diffusers/datasets/placeholder.txt

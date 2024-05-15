@@ -27,3 +27,10 @@ scikit-learn
 # by drc:
 opencv-python
 scikit-image
+
+# by hakubooru
+peewee
+webdataset
+python-dateutil
+pytorch_lightning
+hakubooru
