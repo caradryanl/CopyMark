@@ -13,7 +13,7 @@ from copy import deepcopy
 import time, json
 
 from stable_copyright import PFAMIStableDiffusionPipeline, SecMIDDIMScheduler, PFAMILatentDiffusionPipeline
-from stable_copyright import load_dataset, benchmark
+from stable_copyright import load_dataset, benchmark, test
 
 def image_perturbation(image, strength, image_size=512):
     perturbation = transforms.Compose([
@@ -148,22 +148,32 @@ def main(args):
         torch.save(nonmember_scores_all_steps, args.output + f'pfami_{args.model_type}_nonmember_scores_all_steps.pth')
 
         member_corr_scores, nonmember_corr_scores = compute_corr_score(member_scores_all_steps, nonmember_scores_all_steps)
-        
-        benchmark(member_scores_sum_step, nonmember_scores_sum_step, f'pfami_{args.model_type}_sum_score', args.output)
-        benchmark(member_corr_scores, nonmember_corr_scores, f'pfami_{args.model_type}_corr_score', args.output)
 
-        with open(args.output + f'pfami_{args.model_type}_image_log.json', 'w') as file:
-            json.dump(dict(member=member_path_log, nonmember=nonmember_path_log), file, indent=4)
+        if not args.eval:
+            benchmark(member_scores_sum_step, nonmember_scores_sum_step, f'pfami_{args.model_type}_sum_score', args.output)
+            benchmark(member_corr_scores, nonmember_corr_scores, f'pfami_{args.model_type}_corr_score', args.output)
+
+            with open(args.output + f'pfami_{args.model_type}_image_log.json', 'w') as file:
+                json.dump(dict(member=member_path_log, nonmember=nonmember_path_log), file, indent=4)
+
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+            running_time = dict(running_time=elapsed_time)
+            with open(args.output + f'pfami_{args.model_type}_running_time.json', 'w') as file:
+                json.dump(running_time, file, indent=4)
+        else:
+            threshold_path = args.threshold_root + f'{args.model_type}/pfami/'
+
+            test(member_scores_sum_step, member_scores_sum_step, f'pfami_{args.model_type}_sum_score', args.output, threshold_path)
+            test(member_corr_scores, nonmember_corr_scores, f'pfami_{args.model_type}_corr_score', args.output, threshold_path)
+
+            with open(args.output + f'pfami_{args.model_type}_image_log_test.json', 'w') as file:
+                json.dump(dict(member=member_path_log, nonmember=nonmember_path_log), file, indent=4)
 
     else:
         raise NotImplementedError('DDP not implemented')
     
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    running_time = dict(running_time=elapsed_time)
     
-    with open(args.output + f'pfami_{args.model_type}_running_time.json', 'w') as file:
-        json.dump(running_time, file, indent=4)
 
     
 
@@ -194,6 +204,8 @@ if __name__ == '__main__':
     parser.add_argument('--end-strength', type=float, default=0.7)
     parser.add_argument('--model-type', type=str, choices=['sd', 'sdxl', 'ldm'], default='sd')
     parser.add_argument('--demo', type=bool, default=False)
+    parser.add_argument('--eval', type=bool, default=False)
+    parser.add_argument('--threshold-root', type=str, default='experiments/')
     args = parser.parse_args()
 
     fix_seed(args.seed)

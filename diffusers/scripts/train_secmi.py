@@ -10,7 +10,7 @@ import argparse
 import json,time
 
 from stable_copyright import SecMILatentDiffusionPipeline, SecMIStableDiffusionPipeline, SecMIDDIMScheduler
-from stable_copyright import load_dataset, benchmark
+from stable_copyright import load_dataset, benchmark, test
 
 
 def load_pipeline(ckpt_path, device='cuda:0', model_type='sd'):
@@ -101,21 +101,30 @@ def main(args):
 
         member_corr_scores, nonmember_corr_scores = compute_corr_score(member_scores_all_steps, nonmember_scores_all_steps)
         
-        benchmark(member_scores_50th_step, nonmember_scores_50th_step, f'secmi_{args.model_type}_50th_score', args.output)
-        benchmark(member_corr_scores, nonmember_corr_scores, f'secmi_{args.model_type}_corr_score', args.output)
+        if not args.eval:
+            benchmark(member_scores_50th_step, nonmember_scores_50th_step, f'secmi_{args.model_type}_50th_score', args.output)
+            benchmark(member_corr_scores, nonmember_corr_scores, f'secmi_{args.model_type}_corr_score', args.output)
 
-        with open(args.output + f'secmi_{args.model_type}_image_log.json', 'w') as file:
-            json.dump(dict(member=member_path_log, nonmember=nonmember_path_log), file, indent=4)
+            with open(args.output + f'secmi_{args.model_type}_image_log.json', 'w') as file:
+                json.dump(dict(member=member_path_log, nonmember=nonmember_path_log), file, indent=4)
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+            running_time = dict(running_time=elapsed_time)
+            with open(args.output + f'secmi_{args.model_type}_running_time.json', 'w') as file:
+                json.dump(running_time, file, indent=4)
+        else:
+            threshold_path = args.threshold_root + f'{args.model_type}/secmi/'
+
+            test(member_scores_50th_step, nonmember_scores_50th_step, f'secmi_{args.model_type}_50th_score', args.output, threshold_path)
+            test(member_corr_scores, nonmember_corr_scores, f'secmi_{args.model_type}_corr_score', args.output, threshold_path)
+
+            with open(args.output + f'secmi_{args.model_type}_image_log_test.json', 'w') as file:
+                json.dump(dict(member=member_path_log, nonmember=nonmember_path_log), file, indent=4)
 
     else:
         raise NotImplementedError('DDP not implemented')
     
-    end_time = time.time()
-    elapsed_time = end_time - start_time
-    running_time = dict(running_time=elapsed_time)
     
-    with open(args.output + f'secmi_{args.model_type}_running_time.json', 'w') as file:
-        json.dump(running_time, file, indent=4)
     
 
 
@@ -142,6 +151,8 @@ if __name__ == '__main__':
     parser.add_argument('--use-ddp', type=bool, default=False)
     parser.add_argument('--model-type', type=str, choices=['sd', 'sdxl', 'ldm'], default='sd')
     parser.add_argument('--demo', type=bool, default=False)
+    parser.add_argument('--eval', type=bool, default=False)
+    parser.add_argument('--threshold-root', type=str, default='experiments/')
     args = parser.parse_args()
 
     fix_seed(args.seed)
