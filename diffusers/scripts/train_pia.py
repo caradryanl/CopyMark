@@ -126,7 +126,7 @@ def main(args):
             torch.save(member_scores_all_steps, args.output + f'{pia_or_pian}_{args.model_type}_member_scores_all_steps_test.pth')
             torch.save(nonmember_scores_all_steps, args.output + f'{pia_or_pian}_{args.model_type}_nonmember_scores_all_steps_test.pth')
             threshold_path = args.threshold_root + f'{args.model_type}/{pia_or_pian}/'
-            test(member_scores_sum_step, member_scores_sum_step, f'{pia_or_pian}_{args.model_type}_sum_score', args.output, threshold_path)
+            test(member_scores_sum_step, nonmember_scores_sum_step, f'{pia_or_pian}_{args.model_type}_sum_score', args.output, threshold_path)
             test(member_corr_scores, nonmember_corr_scores, f'{pia_or_pian}_{args.model_type}_corr_score', args.output, threshold_path)
 
             with open(args.output + f'{pia_or_pian}_{args.model_type}_image_log_test.json', 'w') as file:

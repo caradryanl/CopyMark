@@ -21,7 +21,6 @@ from .gsa_pipeline_latent_diffusion import GSAStableDiffusionPipelineOutput
 class GSAStableDiffusionPipeline(
     StableDiffusionPipeline
 ):
-    @torch.no_grad()
     def prepare_inputs(self, batch, weight_dtype, device):
         pixel_values, input_ids = batch["pixel_values"].to(weight_dtype), batch["input_ids"]
         if device == 'cuda':
@@ -30,6 +29,9 @@ class GSAStableDiffusionPipeline(
         latents = self.vae.encode(pixel_values).latent_dist.sample()
         latents = latents * 0.18215
         encoder_hidden_states = self.text_encoder(input_ids)[0]
+
+        for param in self.unet.parameters():
+            param.requires_grad = True
 
         return latents, encoder_hidden_states
 
@@ -47,7 +49,6 @@ class GSAStableDiffusionPipeline(
 
         return timesteps, num_inference_steps - t_start
 
-    @torch.no_grad()
     @replace_example_docstring(EXAMPLE_DOC_STRING)
     def __call__(
         self,
@@ -331,11 +332,13 @@ class GSAStableDiffusionPipeline(
             if gsa_mode == 1:
                 for i in range(original_latents.shape[0]):
                     # compute the sum of the loss
-                    losses_i = []
+                    losses_i = None
                     for j in range(len(denoising_results)):
                         loss_ij = (((denoising_results[j][i, ...] - posterior_results[j][i, ...]) ** 2).sum())
-                        losses_i.append(loss_ij)
-                    losses_i = torch.stack(losses_i, dim=0).sum()   # [num_timesteps,] -> [1,]
+                        if not losses_i:
+                            losses_i = loss_ij
+                        else:
+                            losses_i += loss_ij
                     accelerator.backward(losses_i)
 
                     # compute the gradient of the loss sum

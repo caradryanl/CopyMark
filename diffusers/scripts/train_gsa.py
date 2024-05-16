@@ -14,17 +14,17 @@ from xgboost import XGBClassifier
 from sklearn import metrics
 from sklearn import preprocessing
 
-from stable_copyright import PIAStableDiffusionPipeline, SecMIDDIMScheduler, PIALatentDiffusionPipeline
+from stable_copyright import GSALatentDiffusionPipeline, SecMIDDIMScheduler, GSAStableDiffusionPipeline
 from stable_copyright import load_dataset, benchmark, test
 
 
 def load_pipeline(ckpt_path, device='cuda:0', model_type='sd'):
     if model_type == 'sd':
-        pipe = PIAStableDiffusionPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
+        pipe = GSAStableDiffusionPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
         pipe.scheduler = SecMIDDIMScheduler.from_config(pipe.scheduler.config)
         pipe = pipe.to(device)
     elif model_type == 'ldm':
-        pipe = PIALatentDiffusionPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
+        pipe = GSALatentDiffusionPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
         # pipe.scheduler = SecMIDDIMScheduler.from_config(pipe.scheduler.config)
     elif model_type == 'sdxl':
         raise NotImplementedError('SDXL not implemented yet')
@@ -39,10 +39,12 @@ def get_reverse_denoise_results(pipe, dataloader, device, gsa_mode, demo):
         pipe.unet.parameters(),
         lr=0
     )
-    pipe.unet, optimizer, dataloader = accelerator.prepare(
-        pipe.unet, optimizer, dataloader
+    for param in pipe.unet.parameters():
+        param.requires_grad = True
+    pipe, optimizer, dataloader = accelerator.prepare(
+        pipe, optimizer, dataloader
     )
-
+    
     weight_dtype = torch.float32
     features, path_log = [], []
     for batch_idx, batch in enumerate(tqdm.tqdm(dataloader)):
@@ -50,12 +52,13 @@ def get_reverse_denoise_results(pipe, dataloader, device, gsa_mode, demo):
         latents, encoder_hidden_states = pipe.prepare_inputs(batch, weight_dtype, device)
         out = pipe(\
             accelerator=accelerator, optimizer=optimizer, prompt=None, latents=latents, \
-            prompt_embeds=encoder_hidden_states, guidance_scale=1.0, num_inference_steps=100, gsa_mode=gsa_mode)
+            prompt_embeds=encoder_hidden_states, guidance_scale=1.0, num_inference_steps=20, gsa_mode=gsa_mode)
         gsa_features = out.gsa_features # # [bsz x Tensor(num_p)]
+        # print(f"gsa: {gsa_features}")
 
         # print(f'posterior {posterior_results[0].shape}')
 
-        for feature in range(len(gsa_features)):
+        for feature in gsa_features:
             features.append(feature.detach().clone().cpu())
         
         if demo and batch_idx > 0:
@@ -71,26 +74,25 @@ def get_reverse_denoise_results_ddp(pipe, dataloader):
     return None, None
 
 def preprocess(member, non_member):
-    member_np = member.cpu().numpy()
-    nonmember_np = non_member.cpu().numpy()
-    member_np = member_np[0:nonmember_np.shape[0]]
-    member_y_np = np.zeros(member_np.shape[0])
-    nonmember_y_np = np.ones(nonmember_np.shape[0])
-    x = np.vstack((member_y_np, nonmember_y_np))
+    member = member[0:non_member.shape[0]]
+    member_y_np = np.zeros(member.shape[0])
+    nonmember_y_np = np.ones(non_member.shape[0])
+    x = np.vstack((member, non_member))
     y = np.concatenate((member_y_np, nonmember_y_np))
     x = preprocessing.scale(x)
     return x, y
 
 def train_xgboost(member_features, nonmember_features):
     x, y = preprocess(member_features, nonmember_features)
-
-    xgb = XGBClassifier(n_estimators=200)
+    # print(x, y)
+    xgb = XGBClassifier(n_estimators=1000)
     xgb.fit(x, y)
     y_pred = xgb.predict(x)
+    # print(np.isnan(x).any())
+    print(x, y, y_pred, x.min(), x.max(), x.shape)
 
     member_scores = torch.tensor(y_pred[y >= 0.5])
     nonmember_scores = torch.tensor(y_pred[y < 0.5])
-
     return xgb, member_scores, nonmember_scores
 
 def test_xgboost(xgb_save_path, member_features, nonmember_features):
@@ -134,7 +136,7 @@ def main(args):
 
             # train a xgboost
             xgb, member_scores, nonmember_scores = train_xgboost(member_features, nonmember_features)
-            xgb.save_model(args.output + f'xgboost_gsa_{args.gsa_mode}_{args.model_type}.model')
+            xgb.save_model(args.output + f'xgboost_gsa_{args.gsa_mode}_{args.model_type}.bin')
 
             benchmark(member_scores, nonmember_scores, f'gsa_{args.gsa_mode}_{args.model_type}_score', args.output)
 
@@ -152,7 +154,7 @@ def main(args):
                 json.dump(dict(member=member_path_log, nonmember=nonmember_path_log), file, indent=4)
 
             # test the trained xgboost
-            xgb_save_path = args.threshold_root + f'{args.model_type}/gsa_{args.gsa_mode}/xgboost_gsa_{args.gsa_mode}_{args.model_type}.model'
+            xgb_save_path = args.threshold_root + f'{args.model_type}/gsa_{args.gsa_mode}/xgboost_gsa_{args.gsa_mode}_{args.model_type}.bin'
             member_scores, nonmember_scores = test_xgboost(xgb_save_path, member_features, nonmember_features)
 
             threshold_path = args.threshold_root + f'{args.model_type}/gsa_{args.gsa_mode}/'
@@ -196,7 +198,7 @@ if __name__ == '__main__':
     # parser.add_argument('--ckpt-path', type=str, default='../models/diffusers/ldm-celebahq-256/')
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--output', type=str, default='outputs/')
-    parser.add_argument('--batch-size', type=int, default=5)
+    parser.add_argument('--batch-size', type=int, default=1)
     parser.add_argument('--use-ddp', type=bool, default=False)
     parser.add_argument('--gsa-mode', type=int, default=1, choices=[1, 2])
     parser.add_argument('--model-type', type=str, choices=['sd', 'sdxl', 'ldm'], default='sd')

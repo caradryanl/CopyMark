@@ -11,3 +11,7 @@ from .pia_pipeline_sdxl import *
 from .pfami_pipeline_stable_diffusion import PFAMIStableDiffusionPipeline
 from .pfami_pipeline_latent_diffusion import PFAMILatentDiffusionPipeline
 from .pfami_pipeline_sdxl import *
+
+from .gsa_pipeline_stable_diffusion import GSAStableDiffusionPipeline
+from .gsa_pipeline_latent_diffusion import GSALatentDiffusionPipeline
+from .gsa_pipeline_sdxl import *

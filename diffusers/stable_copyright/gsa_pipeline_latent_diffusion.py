@@ -13,8 +13,9 @@ from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import \
     (
         retrieve_timesteps,
         randn_tensor,
-        DiffusionPipeline
+        DiffusionPipeline,
     )
+
 
 from .secmi_scheduling_ddim import SecMIDDIMScheduler
 
@@ -46,6 +47,7 @@ class GSALatentDiffusionPipeline(
         self.scheduler = scheduler
         self.generator = generator
         self.execution_device = device
+
         
     @classmethod
     def from_pretrained(self, 
@@ -68,13 +70,15 @@ class GSALatentDiffusionPipeline(
 
         return GSALatentDiffusionPipeline(unet=unet, vae=vae, scheduler=scheduler, device=device, generator=generator)
 
-    @torch.no_grad()
     def prepare_inputs(self, batch, weight_dtype, device):
         pixel_values = batch["pixel_values"].to(weight_dtype)
         if device == 'cuda':
             pixel_values  = pixel_values.cuda()
         latents = self.vae.encode(pixel_values)[0]
         encoder_hidden_states = None
+
+        for param in self.unet.parameters():
+            param.requires_grad = True
 
         return latents, encoder_hidden_states
 
@@ -92,7 +96,6 @@ class GSALatentDiffusionPipeline(
 
         return timesteps, num_inference_steps - t_start
 
-    @torch.no_grad()
     def __call__(
         self,
         accelerator: Accelerator,
@@ -142,12 +145,11 @@ class GSALatentDiffusionPipeline(
                     latent_model_input = self.scheduler.add_noise(latent_model_input, noise, t)
 
                     # predict the noise residual
-                    with torch.no_grad():
-                        noise_pred = self.unet(
-                            latent_model_input,
-                            t,
-                            return_dict=False,
-                        )[0]
+                    noise_pred = self.unet(
+                        latent_model_input,
+                        t,
+                        return_dict=False,
+                    )[0]
 
                     # compute the previous noisy sample x_t -> x_t-1
                     denoising_results.append(noise_pred)
@@ -159,11 +161,13 @@ class GSALatentDiffusionPipeline(
             if gsa_mode == 1:
                 for i in range(original_latents.shape[0]):
                     # compute the sum of the loss
-                    losses_i = []
+                    losses_i = None
                     for j in range(len(denoising_results)):
                         loss_ij = (((denoising_results[j][i, ...] - posterior_results[j][i, ...]) ** 2).sum())
-                        losses_i.append(loss_ij)
-                    losses_i = torch.stack(losses_i, dim=0).sum()   # [num_timesteps,] -> [1,]
+                        if not losses_i:
+                            losses_i = loss_ij
+                        else:
+                            losses_i += loss_ij
                     accelerator.backward(losses_i)
 
                     # compute the gradient of the loss sum
