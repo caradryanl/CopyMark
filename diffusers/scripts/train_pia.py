@@ -103,15 +103,14 @@ def main(args):
             os.mkdir(args.output)
 
         member_scores_sum_step, member_scores_all_steps, member_path_log = get_reverse_denoise_results(pipe, member_loader, args.device, args.normalized, args.demo)
-        torch.save(member_scores_all_steps, args.output + f'{pia_or_pian}_{args.model_type}_member_scores_all_steps.pth')
-
         nonmember_scores_sum_step, nonmember_scores_all_steps, nonmember_path_log = get_reverse_denoise_results(pipe, holdout_loader, args.device, args.normalized, args.demo)
-        torch.save(nonmember_scores_all_steps, args.output + f'{pia_or_pian}_{args.model_type}_nonmember_scores_all_steps.pth')
-
         member_corr_scores, nonmember_corr_scores = compute_corr_score(member_scores_all_steps, nonmember_scores_all_steps)
         
         
         if not args.eval:
+            torch.save(member_scores_all_steps, args.output + f'{pia_or_pian}_{args.model_type}_member_scores_all_steps.pth')
+            torch.save(nonmember_scores_all_steps, args.output + f'{pia_or_pian}_{args.model_type}_nonmember_scores_all_steps.pth')
+
             benchmark(member_scores_sum_step, nonmember_scores_sum_step, f'{pia_or_pian}_{args.model_type}_sum_score', args.output)
             benchmark(member_corr_scores, nonmember_corr_scores, f'{pia_or_pian}_{args.model_type}_corr_score', args.output)
 
@@ -124,8 +123,9 @@ def main(args):
             with open(args.output + f'{pia_or_pian}_{args.model_type}_running_time.json', 'w') as file:
                 json.dump(running_time, file, indent=4)
         else:
+            torch.save(member_scores_all_steps, args.output + f'{pia_or_pian}_{args.model_type}_member_scores_all_steps_test.pth')
+            torch.save(nonmember_scores_all_steps, args.output + f'{pia_or_pian}_{args.model_type}_nonmember_scores_all_steps_test.pth')
             threshold_path = args.threshold_root + f'{args.model_type}/{pia_or_pian}/'
-
             test(member_scores_sum_step, member_scores_sum_step, f'{pia_or_pian}_{args.model_type}_sum_score', args.output, threshold_path)
             test(member_corr_scores, nonmember_corr_scores, f'{pia_or_pian}_{args.model_type}_corr_score', args.output, threshold_path)
 
@@ -154,8 +154,8 @@ if __name__ == '__main__':
     parser.add_argument('--holdout-dataset', default='coco2017-val-2-5k')
     parser.add_argument('--dataset-root', default='datasets/', type=str)
     parser.add_argument('--seed', type=int, default=10)
-    # parser.add_argument('--ckpt-path', type=str, default='../models/diffusers/stable-diffusion-v1-5/')
-    parser.add_argument('--ckpt-path', type=str, default='../models/diffusers/ldm-celebahq-256/')
+    parser.add_argument('--ckpt-path', type=str, default='../models/diffusers/stable-diffusion-v1-5/')
+    # parser.add_argument('--ckpt-path', type=str, default='../models/diffusers/ldm-celebahq-256/')
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--output', type=str, default='outputs/')
     parser.add_argument('--batch-size', type=int, default=10)

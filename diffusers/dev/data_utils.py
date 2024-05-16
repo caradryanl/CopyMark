@@ -11,8 +11,9 @@ import os
 from typing import Callable, Optional, Any, Tuple, List
 
 def test(member_scores, nonmember_scores, experiment, output_path, threshold_path):
-    with open(threshold_path + experiment + '_result.json', 'r') as file:
-        result = json.load(file)
+
+    with open(threshold_path + experiment + '_result.json', 'w') as file:
+        result = json.dump(file, indent=4)
 
     best_threshold_at_1_FPR = result['best_threshold_at_1_FPR']
     best_threshold_at_01_FPR = result['best_threshold_at_01_FPR']
@@ -47,7 +48,6 @@ def test(member_scores, nonmember_scores, experiment, output_path, threshold_pat
     FN = (member_scores > best_threshold_at_1_FPR).sum()
     TPR_at_1_threshold = TP / (TP + FN)
     FPR_at_1_threshold = FP / (FP + TN)
-    TPR_at_1_threshold, FPR_at_1_threshold = TPR_at_1_threshold.item(), FPR_at_1_threshold.item()
 
     TP = (member_scores <= best_threshold_at_01_FPR).sum()
     TN = (nonmember_scores > best_threshold_at_01_FPR).sum()
@@ -55,7 +55,6 @@ def test(member_scores, nonmember_scores, experiment, output_path, threshold_pat
     FN = (member_scores > best_threshold_at_01_FPR).sum()
     TPR_at_01_threshold = TP / (TP + FN)
     FPR_at_01_threshold = FP / (FP + TN)
-    TPR_at_01_threshold, FPR_at_01_threshold = TPR_at_01_threshold.item(), FPR_at_01_threshold.item()
 
     # print(f'Score threshold = {threshold:.16f} \t ASR: {acc:.8f} \t TPR: {TPR:.8f} \t FPR: {FPR:.8f}')
     auc = metrics.auc(np.asarray(FPR_list), np.asarray(TPR_list))
@@ -138,7 +137,8 @@ def collate_fn(examples):
     else:
         input_ids = torch.stack([example["input_ids"] for example in examples])
     path = [example["path"] for example in examples]
-    return {"pixel_values": pixel_values, "input_ids": input_ids, "path": path}
+    mask = [example["mask"] for example in examples]
+    return {"pixel_values": pixel_values, "input_ids": input_ids, "path": path, "mask": mask}
 
 class StandardTransform: 
     def __init__(self, transform: Optional[Callable] = None, target_transform: Optional[Callable] = None) -> None:
@@ -224,6 +224,10 @@ class Dataset(torch.utils.data.Dataset):
         img_path = os.path.join(self.img_root, self.dataset, 'images', img_name)
         image = Image.open(img_path).convert("RGB")
 
+        # mask
+        mask_path = os.path.join(self.img_root, self.dataset, 'masks', img_name[:-4]+'.npy')
+        mask = np.load(mask_path)
+
         input_id = self._load_input_id(index)
         if len(self.img_info[index]['caption']) == 0:
             caption = None
@@ -234,7 +238,7 @@ class Dataset(torch.utils.data.Dataset):
             image, input_id = StandardTransform(self.transforms, None)(image, input_id)
 
         # return image, target
-        return {"pixel_values": image, "input_ids": input_id, 'caption': caption, 'path': img_name}
+        return {"pixel_values": image, "input_ids": input_id, 'caption': caption, 'path': img_name, 'mask': mask}
 
 
 def load_dataset(dataset_root, ckpt_path, dataset: str='laion-aesthetic-2-5k', batch_size: int=6, model_type='sd'):
