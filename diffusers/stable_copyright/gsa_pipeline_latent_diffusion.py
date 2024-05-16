@@ -106,12 +106,17 @@ class GSALatentDiffusionPipeline(
         strength: float=1.0,
         gsa_mode: int = 1,
         prompt: Optional[Union[str, List[str]]] = None,
-        guidance_scale: float = 7.5,
+        guidance_scale: float = 1.0,
         prompt_embeds: Optional[torch.FloatTensor] = None,
         **kwargs,
     ):
         
-        device = self.execution_device
+        device = accelerator.device
+        latents = latents.to(device=device)
+
+        # check shape
+        if len(latents.shape) == 3:
+            latents = latents.unsqueeze(dim=0)
         
         # 4. Prepare timesteps
         timesteps, num_inference_steps = retrieve_timesteps(self.scheduler, num_inference_steps, device, timesteps)
@@ -121,7 +126,7 @@ class GSALatentDiffusionPipeline(
         original_latents = latents.detach().clone()
         for i, t in enumerate(timesteps): # from t_max to t_min
             noise = randn_tensor(original_latents.shape, generator=generator, device=device, dtype=original_latents.dtype)
-            posterior_results.append(noise.detach().clone())
+            posterior_results.append(noise)
             
         # 7. Denoising loop
         gsa_features = []
@@ -145,7 +150,7 @@ class GSALatentDiffusionPipeline(
                         )[0]
 
                     # compute the previous noisy sample x_t -> x_t-1
-                    denoising_results.append(noise_pred.detach().clone())
+                    denoising_results.append(noise_pred)
                     # print(f"{timesteps[i]} timestep denoising: {torch.sum(latents)}")
 
                     if i == len(timesteps) - 1 or ((i + 1) > 0 and (i + 1) % self.scheduler.order == 0):
@@ -169,7 +174,7 @@ class GSALatentDiffusionPipeline(
                     gsa_features.append(grads_i)
                     optimizer.zero_grad()
 
-                gsa_features = torch.stack(gsa_features, dim=0) # [bsz, num_p]
+                # gsa_features = torch.stack(gsa_features, dim=0) # [bsz, num_p]
             elif gsa_mode == 2:
                 for i in range(original_latents.shape[0]):
                     grads_i = []
@@ -190,18 +195,18 @@ class GSALatentDiffusionPipeline(
                     # compute the sum of gradients
                     grads_i = torch.stack(grads_i, dim=0).sum(dim=0)   # [timestep, num_p] -> [num_p]
                     gsa_features.append(grads_i)
-                gsa_features = torch.stack(gsa_features, dim=0) # [bsz, num_p]
+                # gsa_features = torch.stack(gsa_features, dim=0) # [bsz, num_p]
             else:
                 raise NotImplementedError(f"Mode {gsa_mode} out of 1 and 2")
 
-            if not output_type == "latent":
-                with torch.no_grad():
-                    image = self.vae.decode(latents)[0]
-            else:
-                image = latents
+        if not output_type == "latent":
+            with torch.no_grad():
+                image = self.vae.decode(latents)[0]
+        else:
+            image = latents
 
-            if not return_dict:
-                return (image,)
+        if not return_dict:
+            return (image, gsa_features)
         
 
         return GSAStableDiffusionPipelineOutput(images=image, gsa_features=gsa_features)

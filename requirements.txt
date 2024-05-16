@@ -34,3 +34,6 @@ webdataset
 python-dateutil
 pytorch_lightning
 hakubooru
+
+# by gsa
+xgboost
