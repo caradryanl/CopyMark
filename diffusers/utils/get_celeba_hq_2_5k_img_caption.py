@@ -28,7 +28,7 @@ def main(args):
         image.save(target + 'images/' + f'{idx}.png', 'PNG')
 
         caption[idx] = {
-            "path": target + 'images/' + f'{idx}.png',
+            "path": f'{idx}.png',
             "height": 256,
             "width": 256,
             "caption": []
