@@ -66,7 +66,7 @@ def test(member_scores, nonmember_scores, experiment, output_path, threshold_pat
     output['TPR_at_1_threshold'] = TPR_at_1_threshold
     output['FPR_at_1_threshold'] = FPR_at_1_threshold
     output['TPR_at_01_threshold'] = TPR_at_01_threshold
-    output['FPR_at_1_threshold'] = FPR_at_01_threshold
+    output['FPR_at_01_threshold'] = FPR_at_01_threshold
     output['AUROC'] = auc
     output['TPR'] = TPR_list
     output['FPR'] = FPR_list
