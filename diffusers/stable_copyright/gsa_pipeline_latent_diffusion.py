@@ -168,7 +168,7 @@ class GSALatentDiffusionPipeline(
                             losses_i = loss_ij
                         else:
                             losses_i += loss_ij
-                    accelerator.backward(losses_i)
+                    accelerator.backward(losses_i, retain_graph=True)
 
                     # compute the gradient of the loss sum
                     grads_i = []
@@ -185,7 +185,7 @@ class GSALatentDiffusionPipeline(
                     for j in range(len(denoising_results)):
                         # compute the loss
                         loss_ij = (((denoising_results[j][i, ...] - posterior_results[j][i, ...]) ** 2).sum())
-                        accelerator.backward(loss_ij)
+                        accelerator.backward(loss_ij, retain_graph=True)
 
                         # compute the gradient
                         grads_ij = []

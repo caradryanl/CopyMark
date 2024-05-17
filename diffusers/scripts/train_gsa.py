@@ -146,6 +146,8 @@ def main(args):
          
         # save the features
         member_features, nonmember_features = member_features.numpy(), nonmember_features.numpy()
+        member_features, nonmember_features = np.nan_to_num(member_features), np.nan_to_num(nonmember_features)
+
         if not args.eval:
             with open(args.output + f'gsa_{args.gsa_mode}_{args.model_type}_member_features.npy', 'wb') as f:
                 np.save(f, member_features)
