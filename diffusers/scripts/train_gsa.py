@@ -12,6 +12,7 @@ from accelerate import Accelerator
 import pickle
 
 from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import SGDClassifier
 from sklearn import preprocessing
 
 from stable_copyright import GSALatentDiffusionPipeline, SecMIDDIMScheduler, GSAStableDiffusionPipeline
@@ -61,7 +62,7 @@ def get_reverse_denoise_results(pipe, dataloader, device, gsa_mode, demo):
         for feature in gsa_features:
             features.append(feature.detach().clone().cpu())
         
-        if demo and batch_idx > 9:
+        if demo and batch_idx > 0:
             break
 
     return torch.stack(features, dim=0), path_log
@@ -85,14 +86,34 @@ def preprocess(member, non_member):
 def train_xgboost(member_features, nonmember_features):
     x, y = preprocess(member_features, nonmember_features)
     # print(x, y)
-    xgb = RandomForestClassifier(max_depth=20, random_state=0)
-    xgb.fit(x, y)
-    y_pred = xgb.predict(x)
+    xgb = SGDClassifier()
+
+    def get_batches(X, y, batch_size):
+        n_samples = X.shape[0]
+        for start in range(0, n_samples, batch_size):
+            end = min(start + batch_size, n_samples)
+            yield X[start:end], y[start:end]
+    
+    # Training the model incrementally
+    for X_batch, y_batch in get_batches(x, y, batch_size=100):
+        xgb.partial_fit(X_batch, y_batch, classes=np.unique(y))
     # print(np.isnan(x).any())
+
+    y_pred = batch_predict(xgb, x, batch_size=100)
 
     member_scores = torch.tensor(y_pred[y <= 0.5])
     nonmember_scores = torch.tensor(y_pred[y > 0.5])
     return xgb, member_scores, nonmember_scores
+
+def batch_predict(model, X, batch_size):
+    n_samples = X.shape[0]
+    predictions = []
+    for start in range(0, n_samples, batch_size):
+        end = min(start + batch_size, n_samples)
+        X_batch = X[start:end]
+        batch_predictions = model.predict(X_batch)
+        predictions.extend(batch_predictions)
+    return np.array(predictions)
 
 def test_xgboost(xgb_save_path, member_features, nonmember_features):
     x, y = preprocess(member_features, nonmember_features)
@@ -100,7 +121,7 @@ def test_xgboost(xgb_save_path, member_features, nonmember_features):
     with open(xgb_save_path, 'rb') as f:
         xgb = pickle.load(f)
 
-    y_pred = xgb.predict(x)
+    y_pred = batch_predict(xgb, x, batch_size=100)
     member_scores = torch.tensor(y_pred[y <= 0.5])
     nonmember_scores = torch.tensor(y_pred[y > 0.5])
 
