@@ -81,6 +81,7 @@ def preprocess(member, non_member):
     x = np.vstack((member, non_member))
     y = np.concatenate((member_y_np, nonmember_y_np))
     x = preprocessing.scale(x)
+    x = np.nan_to_num(x, nan=0)
     return x, y
 
 def train_xgboost(member_features, nonmember_features):
