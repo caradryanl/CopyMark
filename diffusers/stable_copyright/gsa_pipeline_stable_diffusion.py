@@ -339,7 +339,7 @@ class GSAStableDiffusionPipeline(
                             losses_i = loss_ij
                         else:
                             losses_i += loss_ij
-                    accelerator.backward(losses_i)
+                    accelerator.backward(losses_i, retain_graph=True)
 
                     # compute the gradient of the loss sum
                     grads_i = []
