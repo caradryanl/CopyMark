@@ -9,9 +9,9 @@ import os
 import argparse
 import json,time
 from accelerate import Accelerator
+import pickle
 
-from xgboost import XGBClassifier
-from sklearn import metrics
+from sklearn.ensemble import RandomForestClassifier
 from sklearn import preprocessing
 
 from stable_copyright import GSALatentDiffusionPipeline, SecMIDDIMScheduler, GSAStableDiffusionPipeline
@@ -20,11 +20,11 @@ from stable_copyright import load_dataset, benchmark, test
 
 def load_pipeline(ckpt_path, device='cuda:0', model_type='sd'):
     if model_type == 'sd':
-        pipe = GSAStableDiffusionPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
+        pipe = GSAStableDiffusionPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float16)
         pipe.scheduler = SecMIDDIMScheduler.from_config(pipe.scheduler.config)
         pipe = pipe.to(device)
     elif model_type == 'ldm':
-        pipe = GSALatentDiffusionPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
+        pipe = GSALatentDiffusionPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float16)
         # pipe.scheduler = SecMIDDIMScheduler.from_config(pipe.scheduler.config)
     elif model_type == 'sdxl':
         raise NotImplementedError('SDXL not implemented yet')
@@ -45,7 +45,7 @@ def get_reverse_denoise_results(pipe, dataloader, device, gsa_mode, demo):
         pipe, optimizer, dataloader
     )
     
-    weight_dtype = torch.float32
+    weight_dtype = torch.float16
     features, path_log = [], []
     for batch_idx, batch in enumerate(tqdm.tqdm(dataloader)):
         path_log.extend(batch['path'])
@@ -61,7 +61,7 @@ def get_reverse_denoise_results(pipe, dataloader, device, gsa_mode, demo):
         for feature in gsa_features:
             features.append(feature.detach().clone().cpu())
         
-        if demo and batch_idx > 0:
+        if demo and batch_idx > 9:
             break
 
     return torch.stack(features, dim=0), path_log
@@ -85,25 +85,24 @@ def preprocess(member, non_member):
 def train_xgboost(member_features, nonmember_features):
     x, y = preprocess(member_features, nonmember_features)
     # print(x, y)
-    xgb = XGBClassifier(n_estimators=1000)
+    xgb = RandomForestClassifier(max_depth=20, random_state=0)
     xgb.fit(x, y)
     y_pred = xgb.predict(x)
     # print(np.isnan(x).any())
-    print(x, y, y_pred, x.min(), x.max(), x.shape)
 
-    member_scores = torch.tensor(y_pred[y >= 0.5])
-    nonmember_scores = torch.tensor(y_pred[y < 0.5])
+    member_scores = torch.tensor(y_pred[y <= 0.5])
+    nonmember_scores = torch.tensor(y_pred[y > 0.5])
     return xgb, member_scores, nonmember_scores
 
 def test_xgboost(xgb_save_path, member_features, nonmember_features):
     x, y = preprocess(member_features, nonmember_features)
-
-    xgb = XGBClassifier(n_estimators=200)
-    xgb.load_model(xgb_save_path)
+    
+    with open(xgb_save_path, 'rb') as f:
+        xgb = pickle.load(f)
 
     y_pred = xgb.predict(x)
-    member_scores = torch.tensor(y_pred[y >= 0.5])
-    nonmember_scores = torch.tensor(y_pred[y < 0.5])
+    member_scores = torch.tensor(y_pred[y <= 0.5])
+    nonmember_scores = torch.tensor(y_pred[y > 0.5])
 
     return member_scores, nonmember_scores
 
@@ -136,7 +135,8 @@ def main(args):
 
             # train a xgboost
             xgb, member_scores, nonmember_scores = train_xgboost(member_features, nonmember_features)
-            xgb.save_model(args.output + f'xgboost_gsa_{args.gsa_mode}_{args.model_type}.bin')
+            with open(args.output + f'xgboost_gsa_{args.gsa_mode}_{args.model_type}.bin', 'wb') as f:
+                pickle.dump(xgb, f)
 
             benchmark(member_scores, nonmember_scores, f'gsa_{args.gsa_mode}_{args.model_type}_score', args.output)
 
@@ -167,7 +167,7 @@ def main(args):
             TPR = TP / (TP + FN)
             FPR = FP / (FP + TN)
 
-            extra_output = dict(TPR=TPR, FPR=FPR)
+            extra_output = dict(TPR=TPR.item(), FPR=FPR.item())
             with open(args.output + f'gsa_{args.gsa_mode}_{args.model_type}_score' + '_extra.json', 'w') as file:
                 json.dump(extra_output, file, indent=4)
 

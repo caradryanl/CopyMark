@@ -374,20 +374,11 @@ class GSAStableDiffusionPipeline(
             else:
                 raise NotImplementedError(f"Mode {gsa_mode} out of 1 and 2")
 
-        if not output_type == "latent":
-            image = self.vae.decode(latents / self.vae.config.scaling_factor, return_dict=False, generator=generator)[
-                0
-            ]
-        else:
-            image = latents
-
-        do_denormalize = [True] * image.shape[0]
-        image = self.image_processor.postprocess(image, output_type=output_type, do_denormalize=do_denormalize)
 
         # Offload all models
         self.maybe_free_model_hooks()
 
         if not return_dict:
-            return (image, gsa_features)
+            return (None, gsa_features)
 
-        return GSAStableDiffusionPipelineOutput(images=image, gsa_features=gsa_features)
+        return GSAStableDiffusionPipelineOutput(images=None, gsa_features=gsa_features)

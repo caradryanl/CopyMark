@@ -77,7 +77,7 @@ def test(member_scores, nonmember_scores, experiment, output_path, threshold_pat
         json.dump(output, file, indent=4)
 
 def benchmark(member_scores, nonmember_scores, experiment, output_path):
-
+    # print(member_scores, nonmember_scores)
     min_score = min(member_scores.min(), nonmember_scores.min())
     max_score = max(member_scores.max(), nonmember_scores.max())
 
