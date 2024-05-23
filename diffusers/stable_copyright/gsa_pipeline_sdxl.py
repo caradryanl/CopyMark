@@ -11,7 +11,8 @@ from diffusers.pipelines.stable_diffusion_xl.pipeline_stable_diffusion_xl import
         randn_tensor,
     )
 
-from .secmi_pipeline_stable_diffusion import SecMIStableDiffusionPipelineOutput
+from .gsa_pipeline_latent_diffusion import GSAStableDiffusionPipelineOutput
+
 
 class GSAStableDiffusionXLPipeline(
     StableDiffusionXLPipeline
@@ -397,4 +398,4 @@ class GSAStableDiffusionXLPipeline(
         if not return_dict:
             return (image,)
 
-        return SecMIStableDiffusionPipelineOutput(images=image, denoising_results=denoising_results, posterior_results=posterior_results)
+        return GSAStableDiffusionPipelineOutput(images=None, gsa_features=gsa_features)
