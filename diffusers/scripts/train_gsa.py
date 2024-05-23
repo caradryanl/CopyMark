@@ -81,13 +81,20 @@ def preprocess(member, non_member):
     x = np.vstack((member, non_member))
     y = np.concatenate((member_y_np, nonmember_y_np))
     x = preprocessing.scale(x)
-    x = np.nan_to_num(x, nan=0, posinf=x[~np.isposinf(x)].max(), neginf=x[~np.isneginf(x)].min())
+
+    def has_nan_inf(array):
+        has_nan = np.isnan(array).any()
+        has_inf = np.isinf(array).any()
+        return has_nan or has_inf
+    
+    print(has_nan_inf(x))
     return x, y
 
 def train_xgboost(member_features, nonmember_features):
     x, y = preprocess(member_features, nonmember_features)
-    # print(x, y)
-    xgb = SGDClassifier()
+    # xgb = SGDClassifier()
+    model = RandomForestClassifier(n_estimators=200, random_state=42)
+    model.fit(x, y)
 
     def get_batches(X, y, batch_size):
         n_samples = X.shape[0]
@@ -96,15 +103,15 @@ def train_xgboost(member_features, nonmember_features):
             yield X[start:end], y[start:end]
     
     # Training the model incrementally
-    for X_batch, y_batch in get_batches(x, y, batch_size=100):
-        xgb.partial_fit(X_batch, y_batch, classes=np.unique(y))
-    # print(np.isnan(x).any())
+    # for X_batch, y_batch in get_batches(x, y, batch_size=100):
+    #     xgb.partial_fit(X_batch, y_batch, classes=np.unique(y))
 
-    y_pred = batch_predict(xgb, x, batch_size=100)
+    # y_pred = batch_predict(xgb, x, batch_size=100)
+    y_pred = model.predict(x)
 
     member_scores = torch.tensor(y_pred[y <= 0.5])
     nonmember_scores = torch.tensor(y_pred[y > 0.5])
-    return xgb, member_scores, nonmember_scores
+    return model, member_scores, nonmember_scores
 
 def batch_predict(model, X, batch_size):
     n_samples = X.shape[0]
@@ -120,13 +127,21 @@ def test_xgboost(xgb_save_path, member_features, nonmember_features):
     x, y = preprocess(member_features, nonmember_features)
     
     with open(xgb_save_path, 'rb') as f:
-        xgb = pickle.load(f)
+        model = pickle.load(f)
 
-    y_pred = batch_predict(xgb, x, batch_size=100)
+    # y_pred = batch_predict(xgb, x, batch_size=100)
+    y_pred = model.predict(x)
     member_scores = torch.tensor(y_pred[y <= 0.5])
     nonmember_scores = torch.tensor(y_pred[y > 0.5])
 
     return member_scores, nonmember_scores
+
+def normalize(array):
+    eps = 1e-5
+    min_val = np.min(array)
+    max_val = np.max(array)
+    normalized_array = (array - min_val) / (max_val - min_val + eps)
+    return normalized_array
 
 def main(args):
     start_time = time.time()
@@ -147,10 +162,12 @@ def main(args):
          
         # save the features
         member_features, nonmember_features = member_features.numpy(), nonmember_features.numpy()
-        membermax, membermin = member_features[~np.isposinf(member_features)].max(), member_features[~np.isneginf(member_features)].min()
-        nonmembermax, nonmembermin = nonmember_features[~np.isposinf(nonmember_features)].max(), nonmember_features[~np.isneginf(nonmember_features)].min()
-        member_features = np.nan_to_num(member_features, nan=0, posinf=membermax, neginf=membermin)
-        nonmember_features = np.nan_to_num(nonmember_features, nan=0, posinf=nonmembermax, neginf=nonmembermin)
+        membermax, membermin, memberavg = member_features[np.isfinite(member_features)].max(), member_features[np.isfinite(member_features)].min(), member_features[np.isfinite(member_features)].mean()
+        nonmembermax, nonmembermin, nonmemberavg = nonmember_features[np.isfinite(nonmember_features)].max(), nonmember_features[np.isfinite(nonmember_features)].min(), nonmember_features[np.isfinite(nonmember_features)].mean()
+        member_features = np.nan_to_num(member_features, nan=memberavg, posinf=membermax, neginf=membermin) # deal with exploding gradients
+        nonmember_features = np.nan_to_num(nonmember_features, nan=nonmemberavg, posinf=nonmembermax, neginf=nonmembermin)  # deal with exploding gradients
+        member_features, nonmember_features = normalize(member_features), normalize(nonmember_features)
+
         if not args.eval:
             with open(args.output + f'gsa_{args.gsa_mode}_{args.model_type}_member_features.npy', 'wb') as f:
                 np.save(f, member_features)
