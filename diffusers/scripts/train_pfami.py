@@ -12,7 +12,7 @@ import argparse
 from copy import deepcopy
 import time, json
 
-from stable_copyright import PFAMIStableDiffusionPipeline, SecMIDDIMScheduler, PFAMILatentDiffusionPipeline
+from stable_copyright import PFAMIStableDiffusionPipeline, SecMIDDIMScheduler, PFAMILatentDiffusionPipeline, PFAMIStableDiffusionXLPipeline
 from stable_copyright import load_dataset, benchmark, test
 
 def image_perturbation(image, strength, image_size=512):
@@ -31,7 +31,9 @@ def load_pipeline(ckpt_path, device='cuda:0', model_type='sd'):
         pipe = PFAMILatentDiffusionPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
         # pipe.scheduler = SecMIDDIMScheduler.from_config(pipe.scheduler.config)
     elif model_type == 'sdxl':
-        raise NotImplementedError('SDXL not implemented yet')
+        pipe = PFAMIStableDiffusionXLPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
+        pipe.scheduler = SecMIDDIMScheduler.from_config(pipe.scheduler.config)
+        pipe = pipe.to(device)
     else:
         raise NotImplementedError(f'Unrecognized model type {model_type}')
     return pipe

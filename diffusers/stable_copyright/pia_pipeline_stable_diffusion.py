@@ -281,15 +281,6 @@ class PIAStableDiffusionPipeline(
         original_latents = latents.detach().clone()
         posterior_results = []
         latent_model_input = self.scheduler.scale_model_input(latents, 0)
-        # noise_pred_gt = self.unet(
-        #     latent_model_input,
-        #     0,
-        #     encoder_hidden_states=prompt_embeds,
-        #     timestep_cond=timestep_cond,
-        #     cross_attention_kwargs=self.cross_attention_kwargs,
-        #     added_cond_kwargs=added_cond_kwargs,
-        #     return_dict=False,
-        # )[0]
         noise_pred_gt = randn_tensor(original_latents.shape, generator=generator, device=device, dtype=original_latents.dtype)
         # print(f"timestep: {0}, sum: {noise_pred_gt.sum()} {noise_pred_gt[0, 0, :10, 0]}")
         if normalized:

@@ -9,7 +9,7 @@ import os
 import argparse
 import json,time
 
-from stable_copyright import PIAStableDiffusionPipeline, SecMIDDIMScheduler, PIALatentDiffusionPipeline
+from stable_copyright import PIAStableDiffusionPipeline, SecMIDDIMScheduler, PIALatentDiffusionPipeline, PIAStableDiffusionXLPipeline
 from stable_copyright import load_dataset, benchmark, test
 
 
@@ -22,7 +22,9 @@ def load_pipeline(ckpt_path, device='cuda:0', model_type='sd'):
         pipe = PIALatentDiffusionPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
         # pipe.scheduler = SecMIDDIMScheduler.from_config(pipe.scheduler.config)
     elif model_type == 'sdxl':
-        raise NotImplementedError('SDXL not implemented yet')
+        pipe = PIAStableDiffusionXLPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
+        pipe.scheduler = SecMIDDIMScheduler.from_config(pipe.scheduler.config)
+        pipe = pipe.to(device)
     else:
         raise NotImplementedError(f'Unrecognized model type {model_type}')
     return pipe
