@@ -79,8 +79,12 @@ def preprocess(member, non_member):
     member_y_np = np.zeros(member.shape[0])
     nonmember_y_np = np.ones(non_member.shape[0])
     x = np.vstack((member, non_member))
-    y = np.concatenate((member_y_np, nonmember_y_np))
+    x_max, x_min, x_avg = x[np.isfinite(x)].max(), x[np.isfinite(x)].min(), x[np.isfinite(x)].mean()
+    x = np.nan_to_num(x, nan=x_avg, posinf=x_max, neginf=x_min) # deal with exploding gradients
+
+    x = normalize(x)
     x = preprocessing.scale(x)
+    y = np.concatenate((member_y_np, nonmember_y_np))
 
     def has_nan_inf(array):
         has_nan = np.isnan(array).any()
@@ -162,17 +166,11 @@ def main(args):
          
         # save the features
         member_features, nonmember_features = member_features.numpy(), nonmember_features.numpy()
-        membermax, membermin, memberavg = member_features[np.isfinite(member_features)].max(), member_features[np.isfinite(member_features)].min(), member_features[np.isfinite(member_features)].mean()
-        nonmembermax, nonmembermin, nonmemberavg = nonmember_features[np.isfinite(nonmember_features)].max(), nonmember_features[np.isfinite(nonmember_features)].min(), nonmember_features[np.isfinite(nonmember_features)].mean()
-        member_features = np.nan_to_num(member_features, nan=memberavg, posinf=membermax, neginf=membermin) # deal with exploding gradients
-        nonmember_features = np.nan_to_num(nonmember_features, nan=nonmemberavg, posinf=nonmembermax, neginf=nonmembermin)  # deal with exploding gradients
-        member_features, nonmember_features = normalize(member_features), normalize(nonmember_features)
+        features = np.vstack((member_features, nonmember_features))
 
         if not args.eval:
-            with open(args.output + f'gsa_{args.gsa_mode}_{args.model_type}_member_features.npy', 'wb') as f:
-                np.save(f, member_features)
-            with open(args.output + f'gsa_{args.gsa_mode}_{args.model_type}_nonmember_features.npy', 'wb') as f:
-                np.save(f, nonmember_features)
+            with open(args.output + f'gsa_{args.gsa_mode}_{args.model_type}_features.npy', 'wb') as f:
+                np.save(f, features)
             with open(args.output + f'gsa_{args.gsa_mode}_{args.model_type}_image_log.json', 'w') as file:
                 json.dump(dict(member=member_path_log, nonmember=nonmember_path_log), file, indent=4)
 
@@ -189,10 +187,8 @@ def main(args):
             with open(args.output + f'gsa_{args.gsa_mode}_{args.model_type}_running_time.json', 'w') as file:
                 json.dump(running_time, file, indent=4)
         else:
-            with open(args.output + f'gsa_{args.gsa_mode}_{args.model_type}_member_features_test.npy', 'wb') as f:
-                np.save(f, member_features)
-            with open(args.output + f'gsa_{args.gsa_mode}_{args.model_type}_nonmember_features_test.npy', 'wb') as f:
-                np.save(f, nonmember_features)
+            with open(args.output + f'gsa_{args.gsa_mode}_{args.model_type}_features_test.npy', 'wb') as f:
+                np.save(f, features)
             with open(args.output + f'gsa_{args.gsa_mode}_{args.model_type}_image_log_test.json', 'w') as file:
                 json.dump(dict(member=member_path_log, nonmember=nonmember_path_log), file, indent=4)
 
