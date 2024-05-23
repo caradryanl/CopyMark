@@ -8,8 +8,6 @@ from diffusers.pipelines.stable_diffusion.pipeline_output import BaseOutput
 from diffusers.pipelines.stable_diffusion_xl.pipeline_stable_diffusion_xl import \
     (
         StableDiffusionXLPipeline,
-        replace_example_docstring,
-        EXAMPLE_DOC_STRING,
         PipelineImageInput,
         deprecate,
         retrieve_timesteps,
@@ -25,7 +23,7 @@ class SecMIStableDiffusionXLPipeline(
     def prepare_inputs(self, batch, weight_dtype, device):
         pixel_values, prompts = batch["pixel_values"].to(weight_dtype), batch["prompts"]
         if device == 'cuda':
-            pixel_values, input_ids = pixel_values.cuda(), input_ids.cuda()
+            pixel_values = pixel_values.cuda()
 
         latents = self.vae.encode(pixel_values).latent_dist.sample()
         latents = latents * 0.18215
@@ -110,8 +108,6 @@ class SecMIStableDiffusionXLPipeline(
         target_size = target_size or (height, width)
 
         # 1. Check inputs. Raise error if not correct
-        if pooled_prompt_embeds == None:
-            prompt_embeds, pooled_prompt_embeds = prompt_embeds
         self.check_inputs(
             prompt,
             prompt_2,
@@ -250,7 +246,7 @@ class SecMIStableDiffusionXLPipeline(
 
         # SECMI
         # get [x_201, x_181, ..., x_1]
-        print(timesteps)
+        # print(timesteps)
         posterior_results = []
         original_latents = latents.detach().clone()
         for i, t in enumerate(timesteps): # from t_max to t_min

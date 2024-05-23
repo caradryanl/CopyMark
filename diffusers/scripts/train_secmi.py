@@ -56,7 +56,7 @@ def get_reverse_denoise_results(pipe, dataloader, device, demo=False):
         mean_l2 += score_50_step
         print(f'[{batch_idx}/{len(dataloader)}] mean l2-sum: {mean_l2 / (batch_idx + 1):.8f}')
 
-        if demo and batch_idx > 0:
+        if demo and batch_idx > 3:
             break
 
     return torch.stack(scores_50_step, dim=0), torch.stack(scores_all_steps, dim=0), path_log
