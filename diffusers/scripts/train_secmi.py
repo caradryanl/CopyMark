@@ -9,7 +9,7 @@ import os
 import argparse
 import json,time
 
-from stable_copyright import SecMILatentDiffusionPipeline, SecMIStableDiffusionPipeline, SecMIDDIMScheduler
+from stable_copyright import SecMILatentDiffusionPipeline, SecMIStableDiffusionPipeline, SecMIDDIMScheduler, SecMIStableDiffusionXLPipeline
 from stable_copyright import load_dataset, benchmark, test
 
 
@@ -22,7 +22,9 @@ def load_pipeline(ckpt_path, device='cuda:0', model_type='sd'):
         pipe = SecMILatentDiffusionPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
         # pipe.scheduler = SecMIDDIMScheduler.from_config(pipe.scheduler.config)
     elif model_type == 'sdxl':
-        raise NotImplementedError('SDXL not implemented yet')
+        pipe = SecMIStableDiffusionXLPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
+        pipe.scheduler = SecMIDDIMScheduler.from_config(pipe.scheduler.config)
+        pipe = pipe.to(device)
     else:
         raise NotImplementedError(f'Unrecognized model type {model_type}')
     return pipe
@@ -34,8 +36,8 @@ def get_reverse_denoise_results(pipe, dataloader, device, demo=False):
     scores_50_step, scores_all_steps, path_log = [], [], []
     for batch_idx, batch in enumerate(tqdm.tqdm(dataloader)):
         path_log.extend(batch['path'])
-        latents, encoder_hidden_states = pipe.prepare_inputs(batch, weight_dtype, device)
-        out = pipe(prompt=None, latents=latents, prompt_embeds=encoder_hidden_states, guidance_scale=1.0, num_inference_steps=100)
+        latents, encoder_hidden_states, prompts = pipe.prepare_inputs(batch, weight_dtype, device)
+        out = pipe(prompt=prompts, latents=latents, prompt_embeds=encoder_hidden_states, guidance_scale=1.0, num_inference_steps=100)
         _, posterior_results, denoising_results = out.images, out.posterior_results, out.denoising_results
 
         # print(f'posterior {posterior_results[0].shape}')

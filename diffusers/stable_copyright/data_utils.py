@@ -138,7 +138,8 @@ def collate_fn(examples):
     else:
         input_ids = torch.stack([example["input_ids"] for example in examples])
     path = [example["path"] for example in examples]
-    return {"pixel_values": pixel_values, "input_ids": input_ids, "path": path}
+    prompts = [example["prompt"] for example in examples]
+    return {"pixel_values": pixel_values, "input_ids": input_ids, "path": path, "prompts": prompts}
 
 class StandardTransform: 
     def __init__(self, transform: Optional[Callable] = None, target_transform: Optional[Callable] = None) -> None:
@@ -234,7 +235,7 @@ class Dataset(torch.utils.data.Dataset):
             image, input_id = StandardTransform(self.transforms, None)(image, input_id)
 
         # return image, target
-        return {"pixel_values": image, "input_ids": input_id, 'caption': caption, 'path': img_name}
+        return {"pixel_values": image, "input_ids": input_id, 'prompt': caption, 'path': img_name}
 
 
 def load_dataset(dataset_root, ckpt_path, dataset: str='laion-aesthetic-2-5k', batch_size: int=6, model_type='sd'):

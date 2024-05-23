@@ -64,7 +64,7 @@ class SecMILatentDiffusionPipeline(
         latents = self.vae.encode(pixel_values)[0]
         encoder_hidden_states = None
 
-        return latents, encoder_hidden_states
+        return latents, encoder_hidden_states, None
 
 
     # borrow from Image2Image

@@ -1,0 +1,1 @@
+python scripts/train_secmi.py --model-type sdxl --ckpt-path ../models/diffusers/Kohaku-XL-Epsilon/ --member-dataset hakubooru-2-5k-member --holdout-dataset hakubooru-2-5k-nonmember --batch-size 3 --demo True

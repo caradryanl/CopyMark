@@ -50,9 +50,9 @@ def get_reverse_denoise_results(pipe, dataloader, device, gsa_mode, demo):
     features, path_log = [], []
     for batch_idx, batch in enumerate(tqdm.tqdm(dataloader)):
         path_log.extend(batch['path'])
-        latents, encoder_hidden_states = pipe.prepare_inputs(batch, weight_dtype, device)
+        latents, encoder_hidden_states, prompts = pipe.prepare_inputs(batch, weight_dtype, device)
         out = pipe(\
-            accelerator=accelerator, optimizer=optimizer, prompt=None, latents=latents, \
+            accelerator=accelerator, optimizer=optimizer, prompt=prompts, latents=latents, \
             prompt_embeds=encoder_hidden_states, guidance_scale=1.0, num_inference_steps=20, gsa_mode=gsa_mode)
         gsa_features = out.gsa_features # # [bsz x Tensor(num_p)]
         # print(f"gsa: {gsa_features}")

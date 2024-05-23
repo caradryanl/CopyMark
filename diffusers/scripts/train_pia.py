@@ -35,9 +35,9 @@ def get_reverse_denoise_results(pipe, dataloader, device, normalized, demo):
     scores_sum, scores_all_steps, path_log = [], [], []
     for batch_idx, batch in enumerate(tqdm.tqdm(dataloader)):
         path_log.extend(batch['path'])
-        latents, encoder_hidden_states = pipe.prepare_inputs(batch, weight_dtype, device)
+        latents, encoder_hidden_states, prompts = pipe.prepare_inputs(batch, weight_dtype, device)
         out = pipe(\
-            prompt=None, latents=latents, prompt_embeds=encoder_hidden_states, \
+            prompt=prompts, latents=latents, prompt_embeds=encoder_hidden_states, \
                 guidance_scale=1.0, num_inference_steps=100, normalized=normalized, strength=0.5)
         _, posterior_results, denoising_results = out.images, out.posterior_results, out.denoising_results
 

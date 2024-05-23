@@ -33,7 +33,7 @@ class GSAStableDiffusionPipeline(
         for param in self.unet.parameters():
             param.requires_grad = True
 
-        return latents, encoder_hidden_states
+        return latents, encoder_hidden_states, None
 
 
     # borrow from Image2Image

@@ -30,7 +30,7 @@ class PIAStableDiffusionPipeline(
         latents = latents * 0.18215
         encoder_hidden_states = self.text_encoder(input_ids)[0]
 
-        return latents, encoder_hidden_states
+        return latents, encoder_hidden_states, None
 
 
     # borrow from Image2Image

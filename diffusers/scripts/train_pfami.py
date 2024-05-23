@@ -66,8 +66,8 @@ def get_reverse_denoise_results(pipe, dataloader, device, strengths, demo):
         for strength in strengths:
             input_batch = deepcopy(batch)
             input_batch["pixel_values"] = image_perturbation(input_batch["pixel_values"], strength)
-            latents, encoder_hidden_states = pipe.prepare_inputs(input_batch, weight_dtype, device)
-            out = pipe(prompt=None, latents=latents, prompt_embeds=encoder_hidden_states, \
+            latents, encoder_hidden_states, prompts = pipe.prepare_inputs(input_batch, weight_dtype, device)
+            out = pipe(prompt=prompts, latents=latents, prompt_embeds=encoder_hidden_states, \
                     guidance_scale=1.0, num_inference_steps=100)
             _, posterior_results, denoising_results = out.images, out.posterior_results, out.denoising_results
             # [len(attack_timesteps) x [B, 4, 64, 64]]
