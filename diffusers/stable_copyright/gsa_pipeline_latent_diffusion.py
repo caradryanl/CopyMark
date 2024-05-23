@@ -123,6 +123,7 @@ class GSALatentDiffusionPipeline(
         
         # 4. Prepare timesteps
         timesteps, num_inference_steps = retrieve_timesteps(self.scheduler, num_inference_steps, device, timesteps)
+        timesteps, num_inference_steps = self.get_timesteps(num_inference_steps, strength, device)
 
         posterior_results = []
         original_latents = latents.detach().clone()

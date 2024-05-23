@@ -79,6 +79,7 @@ class GSAStableDiffusionXLPipeline(
         clip_skip: Optional[int] = None,
         callback_on_step_end: Optional[Callable[[int, int, Dict], None]] = None,
         callback_on_step_end_tensor_inputs: List[str] = ["latents"],
+        strength: float=1.0,
         gsa_mode: int = 1,
         **kwargs,
     ):
@@ -169,6 +170,7 @@ class GSAStableDiffusionXLPipeline(
 
         # 4. Prepare timesteps
         timesteps, num_inference_steps = retrieve_timesteps(self.scheduler, num_inference_steps, device, timesteps)
+        timesteps, num_inference_steps = self.get_timesteps(num_inference_steps, strength, device)
 
         # 5. Prepare latent variables
         num_channels_latents = self.unet.config.in_channels

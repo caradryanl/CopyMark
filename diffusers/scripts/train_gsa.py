@@ -15,7 +15,7 @@ from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import SGDClassifier
 from sklearn import preprocessing
 
-from stable_copyright import GSALatentDiffusionPipeline, SecMIDDIMScheduler, GSAStableDiffusionPipeline
+from stable_copyright import GSALatentDiffusionPipeline, SecMIDDIMScheduler, GSAStableDiffusionPipeline, GSAStableDiffusionXLPipeline
 from stable_copyright import load_dataset, benchmark, test
 
 
@@ -28,7 +28,9 @@ def load_pipeline(ckpt_path, device='cuda:0', model_type='sd'):
         pipe = GSALatentDiffusionPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float16)
         # pipe.scheduler = SecMIDDIMScheduler.from_config(pipe.scheduler.config)
     elif model_type == 'sdxl':
-        raise NotImplementedError('SDXL not implemented yet')
+        pipe = GSAStableDiffusionXLPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float16)
+        pipe.scheduler = SecMIDDIMScheduler.from_config(pipe.scheduler.config)
+        pipe = pipe.to(device)
     else:
         raise NotImplementedError(f'Unrecognized model type {model_type}')
     return pipe

@@ -63,6 +63,7 @@ class GSAStableDiffusionPipeline(
         negative_prompt: Optional[Union[str, List[str]]] = None,
         num_images_per_prompt: Optional[int] = 1,
         eta: float = 0.0,
+        strength: float=1.0,
         gsa_mode: int = 1,
         generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
         latents: Optional[torch.FloatTensor] = None,
@@ -239,6 +240,7 @@ class GSAStableDiffusionPipeline(
 
         # 4. Prepare timesteps
         timesteps, num_inference_steps = retrieve_timesteps(self.scheduler, num_inference_steps, device, timesteps)
+        timesteps, num_inference_steps = self.get_timesteps(num_inference_steps, strength, device)
 
         # 5. Prepare latent variables
         num_channels_latents = self.unet.config.in_channels
