@@ -81,7 +81,7 @@ def preprocess(member, non_member):
     x = np.vstack((member, non_member))
     y = np.concatenate((member_y_np, nonmember_y_np))
     x = preprocessing.scale(x)
-    x = np.nan_to_num(x, nan=0)
+    x = np.nan_to_num(x, nan=0, posinf=x[~np.isposinf(x)].max(), neginf=x[~np.isneginf(x)].min())
     return x, y
 
 def train_xgboost(member_features, nonmember_features):
@@ -147,8 +147,10 @@ def main(args):
          
         # save the features
         member_features, nonmember_features = member_features.numpy(), nonmember_features.numpy()
-        member_features, nonmember_features = np.nan_to_num(member_features, nan=0), np.nan_to_num(nonmember_features, nan=0)
-
+        membermax, membermin = member_features[~np.isposinf(member_features)].max(), member_features[~np.isneginf(member_features)].min()
+        nonmembermax, nonmembermin = nonmember_features[~np.isposinf(nonmember_features)].max(), nonmember_features[~np.isneginf(nonmember_features)].min()
+        member_features = np.nan_to_num(member_features, nan=0, posinf=membermax, neginf=membermin)
+        nonmember_features = np.nan_to_num(nonmember_features, nan=0, posinf=nonmembermax, neginf=nonmembermin)
         if not args.eval:
             with open(args.output + f'gsa_{args.gsa_mode}_{args.model_type}_member_features.npy', 'wb') as f:
                 np.save(f, member_features)
