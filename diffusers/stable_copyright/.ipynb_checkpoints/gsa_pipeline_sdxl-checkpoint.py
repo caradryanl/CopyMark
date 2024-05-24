@@ -392,7 +392,7 @@ class GSAStableDiffusionXLPipeline(
             image = latents
 
         if not output_type == "latent":
-            image = self.image_processor.postprocess(image.detach(), output_type=output_type)
+            image = self.image_processor.postprocess(image, output_type=output_type)
 
         # Offload all models
         self.maybe_free_model_hooks()
