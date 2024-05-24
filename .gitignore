@@ -23,7 +23,6 @@ venv/
 *.pth
 *.pt
 *.ckpt
-*.bin
 
 input/*
 !input/example.png
