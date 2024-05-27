@@ -34,3 +34,6 @@ diffusers/outputs/*
 !diffusers/experiments/
 diffusers/datasets/*
 !diffusers/datasets/placeholder.txt
+
+diffusers/stable_copyright/.ipynb_checkpoints/
+diffusers/scripts/.ipynb_checkpoints/
