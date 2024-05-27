@@ -59,8 +59,8 @@ def preprocess(member, non_member, min=None, max=None):
 def train_model(x, y):
     
     # xgb = SGDClassifier()
-    # model = XGBClassifier(n_estimators=200)
-    model = RandomForestRegressor(n_estimators=200, random_state=42)
+    model = XGBClassifier(n_estimators=200)
+    # model = RandomForestRegressor(n_estimators=200, random_state=42)
     # model = MLPClassifier(solver='lbfgs',
     #                 hidden_layer_sizes=(400, 200, 100, 50), random_state=42)
     # model = XGBRegressor(n_estimators=200, max_depth=2)
