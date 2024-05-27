@@ -29,8 +29,8 @@ def main(args):
 
         caption[idx] = {
             "path": f'{df.iloc[idx,0]}.jpg',
-            "height": df.iloc[idx]['height'],
-            "width": df.iloc[idx]['width'],
+            "height": int(df.iloc[idx]['height']),
+            "width": int(df.iloc[idx]['width']),
             "caption": [df.iloc[idx]['blip2_caption']]
         }
     with open(target + 'caption.json', 'w') as file:
