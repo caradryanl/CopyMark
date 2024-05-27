@@ -26,10 +26,10 @@ def main(args):
         image_bytes = df.iloc[idx]['jpg']
         image = Image.open(BytesIO(image_bytes))
         image = image.convert('RGB')  # Ensure it's in RGB mode for saving as JPEG
-        image.save(target + 'images/' +f'{df.iloc[idx,0]}.png', 'PNG')
+        image.save(target + 'images/' +f'{df.iloc[idx,0]}.jpg', 'JPEG')
 
         caption[idx] = {
-            "path": f'{df.iloc[idx,0]}.png',
+            "path": f'{df.iloc[idx,0]}.jpg',
             "height": df.iloc[idx]['height'],
             "width": df.iloc[idx]['width'],
             "caption": [df.iloc[idx]['blip2_caption']]
