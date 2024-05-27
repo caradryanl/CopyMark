@@ -14,6 +14,8 @@ import pickle
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.linear_model import SGDClassifier
 from sklearn import preprocessing
+from xgboost import XGBClassifier
+
 
 from stable_copyright import GSALatentDiffusionPipeline, SecMIDDIMScheduler, GSAStableDiffusionPipeline, GSAStableDiffusionXLPipeline
 from stable_copyright import load_dataset, benchmark, test
@@ -99,7 +101,7 @@ def preprocess(member, non_member):
 def train_xgboost(member_features, nonmember_features):
     x, y = preprocess(member_features, nonmember_features)
     # xgb = SGDClassifier()
-    model = RandomForestClassifier(n_estimators=200, random_state=42)
+    model = XGBClassifier(n_estimators=200)
     model.fit(x, y)
 
     def get_batches(X, y, batch_size):
