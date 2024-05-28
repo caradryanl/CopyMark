@@ -271,6 +271,6 @@ def load_dataset(dataset_root, ckpt_path, dataset: str='laion-aesthetic-2-5k', b
         transforms=transform, tokenizer=tokenizer)
 
     train_dataloader = torch.utils.data.DataLoader(
-        train_dataset, shuffle=False, collate_fn=collate_fn, batch_size=batch_size
+        train_dataset, pin_memory=True, shuffle=False, collate_fn=collate_fn, batch_size=batch_size
     )
     return train_dataset, train_dataloader
