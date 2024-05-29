@@ -21,7 +21,7 @@ def load_pipeline(ckpt_path, device='cuda:0', model_type='sd'):
     elif model_type == 'ldm':
         pipe = SecMILatentDiffusionPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
         # pipe.scheduler = SecMIDDIMScheduler.from_config(pipe.scheduler.config)
-    elif model_type == 'sdxl':
+    elif model_type == 'sdxl' or model_type == 'kohaku':
         pipe = SecMIStableDiffusionXLPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
         pipe.scheduler = SecMIDDIMScheduler.from_config(pipe.scheduler.config)
         pipe = pipe.to(device)
@@ -152,7 +152,7 @@ if __name__ == '__main__':
     parser.add_argument('--output', type=str, default='outputs/')
     parser.add_argument('--batch-size', type=int, default=10)
     parser.add_argument('--use-ddp', type=bool, default=False)
-    parser.add_argument('--model-type', type=str, choices=['sd', 'sdxl', 'ldm'], default='sd')
+    parser.add_argument('--model-type', type=str, choices=['sd', 'sdxl', 'ldm', 'kohaku'], default='sd')
     parser.add_argument('--demo', type=bool, default=False)
     parser.add_argument('--eval', type=bool, default=False)
     parser.add_argument('--threshold-root', type=str, default='experiments/')

@@ -23,8 +23,16 @@ class GSAStableDiffusionXLPipeline(
         if device == 'cuda':
             pixel_values = pixel_values.cuda()
 
+        # print(pixel_values[0])
+        pixel_values = pixel_values.float()
+        self.vae.to(dtype=torch.float32)
         latents = self.vae.encode(pixel_values).latent_dist.sample()
-        latents = latents * 0.18215
+        self.vae.to(weight_dtype)
+        
+        latents = latents.to(weight_dtype)
+        latents = self.vae.config.scaling_factor * latents
+
+        # print(latents.max(), latents.min(), latents[0])
 
         return latents, None, prompts
 
