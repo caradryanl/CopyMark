@@ -4,6 +4,8 @@ import tqdm
 from accelerate import Accelerator
 from diffusers.pipelines.stable_diffusion.pipeline_stable_diffusion import randn_tensor
 
+from .nodes_diffusers import *
+
 def progress_bar(iterable=None, total=None):
     if iterable is not None:
         return tqdm(iterable)
@@ -29,7 +31,7 @@ def get_timesteps(num_inference_steps, strength):
     # [601, 581, ..., 21, 1]
     return timesteps, num_inference_steps - t_start
 
-def run_gsa(model, seed, prompts, latents, scheduler, gsa_mode, num_inference_steps=50, strength=1.0):
+def run_gsa(model, seed, prompts, added_cond_kwargs, latents, scheduler, gsa_mode, num_inference_steps=50, strength=1.0):
     is_member = False
 
     timesteps = get_timesteps(num_inference_steps, strength)
@@ -71,8 +73,6 @@ def run_gsa(model, seed, prompts, latents, scheduler, gsa_mode, num_inference_st
                     latent_model_input,
                     t,
                     encoder_hidden_states=prompts,
-                    timestep_cond=timestep_cond,
-                    cross_attention_kwargs=self.cross_attention_kwargs,
                     added_cond_kwargs=added_cond_kwargs,
                     return_dict=False,
                 )[0]
@@ -81,7 +81,7 @@ def run_gsa(model, seed, prompts, latents, scheduler, gsa_mode, num_inference_st
             
                 # compute the previous noisy sample x_t -> x_t-1
                 denoising_results.append(noise_pred)
-                latents = scheduler.step(noise_pred, t, latent_model_input, **extra_step_kwargs, return_dict=False)[0]
+                latents = scheduler.step(noise_pred, t, latent_model_input, return_dict=False)[0]
 
                 progress_bar.update()
 
@@ -136,6 +136,8 @@ def run_gsa(model, seed, prompts, latents, scheduler, gsa_mode, num_inference_st
     return is_member, gsa_features
 
 
+GSA_MODE = ["gsa_1", "gsa_2"]
+
 class GSA:
     @classmethod
     def INPUT_TYPES(s):
@@ -143,7 +145,11 @@ class GSA:
                     {"model": ("MODEL",),
                     "seed": ("INT", {"default": 0, "min": 0, "max": 0xffffffffffffffff}),
                     "prompts": ("CONDITIONING", ),
+                    "added_cond_kwargs": ("CONDITIONING", ),
                     "latents": ("LATENT", ),
+                    "scheduler": ("SCHEDULER", ),
+                    "gsa_mode": (GSA_MODE, ),
+                    "gsa_metadata": ("GSA_METADATA",),
                      }
                 }
 
@@ -152,8 +158,8 @@ class GSA:
 
     CATEGORY = "sampling"
 
-    def gsa(self, model, seed, prompts, latents, scheduler, gsa_mode, num_inference_steps=50, strength=1.0):
-        return run_gsa(model, seed, prompts, latents, scheduler, gsa_mode, num_inference_steps=50, strength=1.0)
+    def gsa(model, seed, prompts, added_cond_kwargs, latents, scheduler, gsa_mode, gsa_metadata, num_inference_steps=50, strength=1.0):
+        return run_gsa(model, seed, prompts, added_cond_kwargs, latents, scheduler, gsa_mode, gsa_metadata, num_inference_steps, strength)
     
 NODE_CLASS_MAPPINGS = {
     "GSA": GSA,
