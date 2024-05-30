@@ -43,24 +43,30 @@ class DiffusersVAEEncode:
         return {"required": { "pixels": ("IMAGE", ), "vae": ("VAE", )}}
     RETURN_TYPES = ("LATENT",)
     FUNCTION = "encode"
-
     CATEGORY = "diffusers"
 
     def encode(self, vae, pixels):
-        t = vae.encode(pixels[:,:,:,:3])
-        return ({"samples":t}, )
+        weight_dtype = torch.float16
+
+        pixel_values = pixels.to(weight_dtype).cuda()
+        latents = vae.encode(pixel_values).latent_dist.sample()
+        latents = latents * 0.18215
+
+        return (latents, )
     
-class DiffusersCLIPTextEncode:
+class DiffusersTextEncode:
     @classmethod
     def INPUT_TYPES(s):
         return {"required": {"text": ("STRING", {"multiline": True, "dynamicPrompts": True}), "clip": ("CLIP", )}}
     RETURN_TYPES = ("CONDITIONING",)
     FUNCTION = "encode"
-
     CATEGORY = "diffusers"
 
-    def encode(self, clip, text):
-        tokens = clip.tokenize(text)
+    def encode(self, text_encoder, text_encoder_2, tokenizer, tokenizer_2, prompt):
+        input_ids = tokenizer.tokenize(text)
+        
+        encoder_hidden_states = text_encoder(input_ids)[0]
+        
         cond, pooled = clip.encode_from_tokens(tokens, return_pooled=True)
         return ([[cond, {"pooled_output": pooled}]], )
     
