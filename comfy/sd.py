@@ -14,7 +14,6 @@ import comfy.utils
 from . import clip_vision
 from . import gligen
 from . import diffusers_convert
-from . import model_base
 from . import model_detection
 
 from . import sd1_clip
@@ -486,7 +485,11 @@ def load_checkpoint_guess_config(ckpt_path, output_vae=True, output_clip=True, o
                 clip = CLIP(clip_target, embedding_directory=embedding_directory)
                 m, u = clip.load_sd(clip_sd, full_model=True)
                 if len(m) > 0:
-                    logging.warning("clip missing: {}".format(m))
+                    m_filter = list(filter(lambda a: ".logit_scale" not in a and ".transformer.text_projection.weight" not in a, m))
+                    if len(m_filter) > 0:
+                        logging.warning("clip missing: {}".format(m))
+                    else:
+                        logging.debug("clip missing: {}".format(m))
 
                 if len(u) > 0:
                     logging.debug("clip unexpected {}:".format(u))
@@ -558,7 +561,7 @@ def save_checkpoint(output_path, model, clip=None, vae=None, clip_vision=None, m
         load_models.append(clip.load_model())
         clip_sd = clip.get_sd()
 
-    model_management.load_models_gpu(load_models)
+    model_management.load_models_gpu(load_models, force_patch_weights=True)
     clip_vision_sd = clip_vision.get_sd() if clip_vision is not None else None
     sd = model.model.state_dict_for_saving(clip_sd, vae.get_sd(), clip_vision_sd)
     for k in extra_keys:

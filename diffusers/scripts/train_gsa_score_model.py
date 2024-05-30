@@ -121,6 +121,11 @@ def main(args):
     x, y, x_min, x_max = preprocess(member_features, nonmember_features)
     model, member_scores, nonmember_scores = train_model(x, y)
 
+    metadata = dict(x=x, y=y, x_min=x_min, x_max=x_max, model=model)
+    with open(args.output + f'metadata_gsa_{args.gsa_mode}_{args.model_type}.pkl', 'wb') as f:
+        pickle.dump(metadata, f)
+
+
     TP = (member_scores <= 0.5).sum()
     TN = (nonmember_scores > 0.5).sum()
     FP = (nonmember_scores <= 0.5).sum()
@@ -172,8 +177,8 @@ if __name__ == '__main__':
     parser.add_argument('--dataset-root', default='datasets/', type=str)
     parser.add_argument('--seed', type=int, default=10)
     parser.add_argument('--device', type=str, default='cuda')
-    parser.add_argument('--output', type=str, default='outputs/')
-    parser.add_argument('--gsa-mode', type=int, default=1, choices=[1, 2])
+    parser.add_argument('--output', type=str, default='../custom_nodes/assets/')
+    parser.add_argument('--gsa-mode', type=int, default=2, choices=[1, 2])
     parser.add_argument('--model-type', type=str, choices=['sd', 'sdxl', 'ldm', 'kohaku'], default='sd')
     args = parser.parse_args()
 

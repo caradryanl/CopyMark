@@ -1,8 +1,17 @@
-import importlib
+import pickle
 import json
 import os
 from typing import Any, Dict, Tuple, Union
 import tqdm
+import numpy as np
+import torch
+from PIL import Image, ImageOps, ImageSequence
+from typing import Any, Callable, Dict, List, Optional, Union, Tuple
+
+import folder_paths
+import node_helpers
+
+torch.inference_mode(False)
 
 from diffusers.pipelines.pipeline_loading_utils import (
     ALL_IMPORTABLE_CLASSES,
@@ -19,7 +28,7 @@ def load_diffusers(pretrained_model_name_or_path, return_types, **kwargs):
     # pretrained_model_name_or_path = '../models/diffusers/stable-diffusion-v1-5/'
 
     from_flax = kwargs.pop("from_flax", False)
-    torch_dtype = kwargs.pop("torch_dtype", None)
+    torch_dtype = kwargs.pop("torch_dtype", torch.float16)
     provider = kwargs.pop("provider", None)
     sess_options = kwargs.pop("sess_options", None)
     device_map = kwargs.pop("device_map", None)
@@ -29,11 +38,10 @@ def load_diffusers(pretrained_model_name_or_path, return_types, **kwargs):
     low_cpu_mem_usage = kwargs.pop("low_cpu_mem_usage", True)
     variant = kwargs.pop("variant", None)
 
-    config = dict_from_json_file(None, json_file=pretrained_model_name_or_path+'model_index.json')
+    config = dict_from_json_file(None, json_file=pretrained_model_name_or_path +'/model_index.json')
     init_dict = {k: v for k, v in config.items() if not k.startswith("_") and not "safety_checker" in k}
     args_dict = {k: v for k, v in init_dict.items() if not isinstance(v, list)}
     init_dict = {k: v for k, v in init_dict.items() if not k in args_dict.keys()}
-    print(init_dict)
 
     init_kwargs = {}
     pipeline_class = None
@@ -69,9 +77,9 @@ def load_diffusers(pretrained_model_name_or_path, return_types, **kwargs):
             low_cpu_mem_usage=low_cpu_mem_usage,
             cached_folder=pretrained_model_name_or_path,
         )
-        print(
-            f"Loaded {name} as {class_name} from `{name}` subfolder of {pretrained_model_name_or_path}."
-        )
+        # print(
+        #     f"Loaded {name} as {class_name} from `{name}` subfolder of {pretrained_model_name_or_path}."
+        # )
 
         init_kwargs[name] = loaded_sub_model  # UNet(...), # DiffusionSchedule(...)
 
@@ -88,6 +96,56 @@ def load_diffusers(pretrained_model_name_or_path, return_types, **kwargs):
         print(type(out))
 
     return outs
+
+def load_image(image):
+    image_path = folder_paths.get_annotated_filepath(image)
+        
+    img = node_helpers.pillow(Image.open, image_path)
+    
+    output_images = []
+    output_masks = []
+    w, h = None, None
+
+    excluded_formats = ['MPO']
+    
+    for i in ImageSequence.Iterator(img):
+        i = node_helpers.pillow(ImageOps.exif_transpose, i)
+
+        if i.mode == 'I':
+            i = i.point(lambda i: i * (1 / 255))
+        image = i.convert("RGB")
+
+        if len(output_images) == 0:
+            w = image.size[0]
+            h = image.size[1]
+        
+        if image.size[0] != w or image.size[1] != h:
+            continue
+        
+        image = np.array(image).astype(np.float32) / 255.0
+        image = torch.from_numpy(image)[None,]
+        if 'A' in i.getbands():
+            mask = np.array(i.getchannel('A')).astype(np.float32) / 255.0
+            mask = 1. - torch.from_numpy(mask)
+        else:
+            mask = torch.zeros((64,64), dtype=torch.float32, device="cpu")
+        output_images.append(image)
+        output_masks.append(mask.unsqueeze(0))
+
+    if len(output_images) > 1 and img.format not in excluded_formats:
+        output_image = torch.cat(output_images, dim=0)
+        output_mask = torch.cat(output_masks, dim=0)
+    else:
+        output_image = output_images[0]
+        output_mask = output_masks[0]
+
+
+    return (output_image, output_mask)
+
+def load_metadata(metadata_path):
+    with open(metadata_path, 'rb') as f:
+        metadata = pickle.load(f)
+    return (metadata,)
 
 if __name__ == '__main__':
     load_diffusers(pretrained_model_name_or_path='../models/diffusers/CommonCanvas-XL-C/', return_types=("unet", "text_encoder", "text_encoder_2", "vae", "tokenizer", "scheduler"))

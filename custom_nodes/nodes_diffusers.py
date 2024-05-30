@@ -1,17 +1,18 @@
 import os
-import numpy as np
-import torch
+import sys
+sys.path.append('custom_nodes/')
+sys.path.append('.')
+sys.path.append('..')
 import hashlib
-import diffusers
-from PIL import Image, ImageOps, ImageSequence
-
-import diffusers_ui.load_diffusers
 import folder_paths
-import node_helpers
 
-import diffusers_ui
+from diffusers_ui.encode_diffusers import vae_encode_sd, vae_encode_sdxl, text_encode_sd, text_encode_sdxl
+from diffusers_ui.load_diffusers import load_diffusers, load_image
 
-class DiffusersLoader:
+import torch
+torch.inference_mode(False)
+
+class DiffusersLoadModel:
     @classmethod
     def INPUT_TYPES(cls):
         paths = []
@@ -22,9 +23,11 @@ class DiffusersLoader:
                         paths.append(os.path.relpath(root, start=search_path))
 
         return {"required": {"model_path": (paths,), }}
+    
     RETURN_TYPES = ("unet", "text_encoder", "text_encoder_2", "vae", "tokenizer", "tokenizer_2", "scheduler")
+    # RETURN_TYPES = ("MODEL",)
     FUNCTION = "load_checkpoint"
-    CATEGORY = "diffusers"
+    CATEGORY = "diffusers/load"
 
     def load_checkpoint(self, model_path):
         for search_path in folder_paths.get_folder_paths("diffusers"):
@@ -33,42 +36,81 @@ class DiffusersLoader:
                 if os.path.exists(path):
                     model_path = path
                     break
-
-        return diffusers_ui.load_diffusers.load_diffusers(model_path, return_types=self.RETURN_TYPES)
+        return_types = ("unet", "text_encoder", "text_encoder_2", "vae", "tokenizer", "tokenizer_2", "scheduler")
+        # return_types = ("unet",)
+        return load_diffusers(model_path, return_types=return_types)
     
 
-class DiffusersVAEEncode:
+class DiffusersVAEEncodeSD:
     @classmethod
     def INPUT_TYPES(s):
-        return {"required": { "pixels": ("IMAGE", ), "vae": ("VAE", )}}
+        return {"required": { "pixels": ("IMAGE", ), "vae": ("vae", )}}
     RETURN_TYPES = ("LATENT",)
     FUNCTION = "encode"
-    CATEGORY = "diffusers"
+    CATEGORY = "diffusers/encode"
 
     def encode(self, vae, pixels):
-        weight_dtype = torch.float16
+        return vae_encode_sd(vae, pixels)
 
-        pixel_values = pixels.to(weight_dtype).cuda()
-        latents = vae.encode(pixel_values).latent_dist.sample()
-        latents = latents * 0.18215
-
-        return (latents, )
-    
-class DiffusersTextEncode:
+class DiffusersTextEncodeSD:
     @classmethod
     def INPUT_TYPES(s):
-        return {"required": {"text": ("STRING", {"multiline": True, "dynamicPrompts": True}), "clip": ("CLIP", )}}
-    RETURN_TYPES = ("CONDITIONING",)
-    FUNCTION = "encode"
-    CATEGORY = "diffusers"
+        return {"required": {"prompt": ("STRING", {"multiline": True, "dynamicPrompts": True}), 
+                             "text_encoder": ("text_encoder", ),
+                             "tokenizer": ("tokenizer", ),
+                             }}
+    RETURN_TYPES = ("CONDITIONING", "ADDED_COND_KWARGS")
+    FUNCTION = "encode_prompt"
+    CATEGORY = "diffusers/encode"
 
-    def encode(self, text_encoder, text_encoder_2, tokenizer, tokenizer_2, prompt):
-        input_ids = tokenizer.tokenize(text)
-        
-        encoder_hidden_states = text_encoder(input_ids)[0]
-        
-        cond, pooled = clip.encode_from_tokens(tokens, return_pooled=True)
-        return ([[cond, {"pooled_output": pooled}]], )
+    def encode_prompt(
+            self,
+            prompt: str,
+            text_encoder, 
+            tokenizer, 
+        ):
+        return text_encode_sd(prompt, text_encoder, tokenizer)
+
+class DiffusersVAEEncodeSDXL:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {"required": { "pixels": ("IMAGE", ), "vae": ("vae", )}}
+    RETURN_TYPES = ("LATENT",)
+    FUNCTION = "encode"
+    CATEGORY = "diffusers/encode"
+
+    def encode(self, vae, pixels):
+        return vae_encode_sdxl(vae, pixels)
+
+
+
+class DiffusersTextEncodeSDXL:
+    @classmethod
+    def INPUT_TYPES(s):
+        return {"required": {"prompt": ("STRING", {"multiline": True, "dynamicPrompts": True}), 
+                             "text_encoder": ("text_encoder", ),
+                             "text_encoder_2": ("text_encoder_2", ),
+                             "tokenizer": ("tokenizer", ),
+                             "tokenizer_2": ("tokenizer_2", ),
+                             "unet": ("unet",),
+                             "vae": ("vae",)
+                             }}
+    RETURN_TYPES = ("CONDITIONING", "ADDED_COND_KWARGS")
+    FUNCTION = "encode_prompt"
+    CATEGORY = "diffusers/encode"
+
+    def encode_prompt(
+            self,
+            prompt: str,
+            text_encoder, 
+            text_encoder_2, 
+            tokenizer, 
+            tokenizer_2,
+            unet,
+            vae,
+        ):
+        return text_encode_sdxl(prompt, text_encoder, text_encoder_2, tokenizer, tokenizer_2, unet, vae)
+    
     
 class DiffusersLoadImage:
     @classmethod
@@ -79,40 +121,12 @@ class DiffusersLoadImage:
                     {"image": (sorted(files), {"image_upload": True})},
                 }
 
-    CATEGORY = "diffusers"
+    CATEGORY = "diffusers/load"
 
     RETURN_TYPES = ("IMAGE", "MASK")
     FUNCTION = "load_image"
     def load_image(self, image):
-        image_path = folder_paths.get_annotated_filepath(image)
-        
-        img = node_helpers.open_image(image_path)
-        
-        output_images = []
-        output_masks = []
-        for i in ImageSequence.Iterator(img):
-            i = ImageOps.exif_transpose(i)
-            if i.mode == 'I':
-                i = i.point(lambda i: i * (1 / 255))
-            image = i.convert("RGB")
-            image = np.array(image).astype(np.float32) / 255.0
-            image = torch.from_numpy(image)[None,]
-            if 'A' in i.getbands():
-                mask = np.array(i.getchannel('A')).astype(np.float32) / 255.0
-                mask = 1. - torch.from_numpy(mask)
-            else:
-                mask = torch.zeros((64,64), dtype=torch.float32, device="cpu")
-            output_images.append(image)
-            output_masks.append(mask.unsqueeze(0))
-
-        if len(output_images) > 1:
-            output_image = torch.cat(output_images, dim=0)
-            output_mask = torch.cat(output_masks, dim=0)
-        else:
-            output_image = output_images[0]
-            output_mask = output_masks[0]
-
-        return (output_image, output_mask)
+        return load_image(image)
 
     @classmethod
     def IS_CHANGED(s, image):
@@ -128,3 +142,10 @@ class DiffusersLoadImage:
             return "Invalid image file: {}".format(image)
 
         return True
+    
+NODE_CLASS_MAPPINGS = {
+    "DiffusersLoadModel": DiffusersLoadModel,
+    "DiffusersVAEEncodeSD": DiffusersVAEEncodeSD,
+    "DiffusersTextEncodeSD": DiffusersTextEncodeSD,
+    "DiffusersLoadImage": DiffusersLoadImage,
+}
