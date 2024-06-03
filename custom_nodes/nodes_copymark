@@ -30,7 +30,7 @@ class GSA:
     RETURN_TYPES = ("BOOL", "IMAGE")
     FUNCTION = "gsa"
 
-    CATEGORY = "diffusers/gsa"
+    CATEGORY = "diffusers/copymark"
     
     def gsa(self, unet, seed, prompts, added_cond_kwargs, latents, scheduler, gsa_mode, metadata, num_inference_steps=5, strength=1.0):
         return run_gsa(unet, seed, prompts, added_cond_kwargs, latents, scheduler, gsa_mode, metadata, num_inference_steps, strength)
@@ -86,9 +86,9 @@ class PFAMIDiffusersVAEEncodeSD:
         return {"required": { "pixels": ("IMAGE", ), "vae": ("vae", )}}
     RETURN_TYPES = ("LATENT",)
     FUNCTION = "encode"
-    CATEGORY = "diffusers/encode"
+    CATEGORY = "diffusers/copymark"
 
-    def encode(self, vae, pixels):
+    def encode(self, pixels, vae):
         return pfami_vae_encode_sd(vae, pixels)
 
 class PFAMI:

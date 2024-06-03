@@ -1,4 +1,0 @@
-python utils/get_laion_aesthetic_2_5k_eval_img_caption.py
-python utils/get_coco_2_5k_eval_img_caption.py
-python utils/get_celeba_hq_2_5k_eval_img_caption.py
-python utils/get_ffhq_2_5k_eval_img_caption.py
