@@ -42,3 +42,6 @@ xgboost
 kornia>=0.7.1
 spandrel
 
+# by copymark ui
+seaborn
+
