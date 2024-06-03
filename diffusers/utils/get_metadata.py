@@ -12,7 +12,7 @@ def main(args):
     # step 1: get the training feature
     with open(f'experiments/{args.model_type}/{args.method}/{args.method}_{args.model_type}_member_scores_all_steps.pth', 'rb') as f:
         member_scores = torch.load(f)
-    with open(f'experiments/{args.model_type}/{args.method}/{args.method}_{args.model_type}_member_scores_all_steps.pth', 'rb') as f:
+    with open(f'experiments/{args.model_type}/{args.method}/{args.method}_{args.model_type}_nonmember_scores_all_steps.pth', 'rb') as f:
         nonmember_scores = torch.load(f)
     with open(f'experiments/{args.model_type}/{args.method}/{args.method}_{args.model_type}_sum_score_result.json', 'rb') as f:
         result = json.load(f)
@@ -20,6 +20,13 @@ def main(args):
     threshold = result['best_threshold_at_1_FPR']
     member_scores = member_scores.numpy()
     nonmember_scores = nonmember_scores.numpy()
+    # print(member_scores.shape, nonmember_scores.shape)
+    if args.method == 'secmi':
+        member_scores = member_scores[:, 14]
+        nonmember_scores = nonmember_scores[:, 14]
+    else:
+        member_scores = member_scores.sum(axis=-1)
+        nonmember_scores = nonmember_scores.sum(axis=-1)
     metadata = dict(member_scores=member_scores, nonmember_scores=nonmember_scores, threshold=threshold)
     print(type(metadata), type(member_scores),type(nonmember_scores), type(threshold) )
     with open(args.output + f'metadata_{args.method}_{args.model_type}.pkl', 'wb') as f:

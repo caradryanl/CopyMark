@@ -343,11 +343,13 @@ def run_gsa(unet,
     return is_member, feat_map
 
 def infer(scores, metadata):
-    x = scores.detach().clone().cpu().numpy()
+    
 
     x_mem, x_nonmem, threshold = \
-        metadata['scores_mem'], metadata['scores_nonmem'], metadata['threshold']    
+        metadata['member_scores'], metadata['nonmember_scores'], metadata['threshold']    
     
+    x = np.array(scores).repeat(x_nonmem.shape[0])
+    print(x_mem.shape, x_nonmem.shape, x.shape)
     data = pd.DataFrame({
         'member': x_mem,
         'non-member': x_nonmem,
@@ -362,8 +364,7 @@ def infer(scores, metadata):
     sns.boxplot(x='Membership', y='Scores', data=data_melted)
 
     # Add a horizontal threshold line
-    threshold_value = 35
-    plt.axhline(threshold_value, color='red', linestyle='--', label=f'Threshold: {threshold_value}')
+    plt.axhline(threshold, color='red', linestyle='--', label=f'Threshold: {threshold}')
 
     # Add titles and labels
     plt.title('Three Columns Box Plot with Threshold')
@@ -377,7 +378,7 @@ def infer(scores, metadata):
     feat_map = torch.from_numpy(feat_map)[None,]
     # img_buf.close()
 
-    is_member = x.item() <= threshold
+    is_member = x[0] <= threshold
 
     return is_member, feat_map
 
@@ -394,7 +395,11 @@ def run_secmi(
     device = "cuda"
     generator = None
     scheduler = SecMIDDIMScheduler.from_config(scheduler.config)
+    scheduler.set_timesteps(num_inference_steps, device)
     timesteps, num_inference_steps = get_timesteps(num_inference_steps, strength, device)
+    # print(timesteps)
+
+    unet = unet.to(device)
 
     posterior_results = []
     original_latents = latents.detach().clone()
@@ -425,7 +430,7 @@ def run_secmi(
     # 7. Denoising loop
     denoising_results = []
     unit_t = timesteps[0] - timesteps[1]
-    with progress_bar(total=num_inference_steps) as progress_bar:
+    with progress_bar(total=num_inference_steps) as bar:
         for i, t in enumerate(timesteps):
             latents = reverse_results[i]
             t = t + unit_t
@@ -448,10 +453,10 @@ def run_secmi(
 
             # call the callback, if provided
             if i == len(timesteps) - 1 or ((i + 1) % scheduler.order == 0):
-                progress_bar.update()
+                bar.update()
 
     # compute score
-    scores = [((denoising_results[14] - posterior_results[14]) ** 2).sum()]
+    scores = [((denoising_results[14] - posterior_results[14]) ** 2).sum().item()]
     # Offload all models
     is_member, feat_map = infer(scores=scores, metadata=metadata)
 
@@ -470,6 +475,7 @@ def run_pia(
     device = "cuda"
     generator = None
     scheduler = SecMIDDIMScheduler.from_config(scheduler.config)
+    scheduler.set_timesteps(num_inference_steps, device)
     timesteps, num_inference_steps = get_timesteps(num_inference_steps, strength, device)
 
     # 4. Prepare timesteps
@@ -489,7 +495,7 @@ def run_pia(
     denoising_results = []
     unit_t = timesteps[0] - timesteps[1]
     # print(unit_t, timesteps)
-    with progress_bar(total=num_inference_steps) as progress_bar:
+    with progress_bar(total=num_inference_steps) as bar:
         for i, t in enumerate(timesteps):
             noise = posterior_results[i]
             t = t + unit_t
@@ -513,13 +519,13 @@ def run_pia(
 
         # call the callback, if provided
         if i == len(timesteps) - 1 or ((i + 1) % scheduler.order == 0):
-            progress_bar.update()
+            bar.update()
 
     # compute score
-    scores = []
     for i in range(len(denoising_results)):
         scores.append(((denoising_results[i] - posterior_results[i]) ** 2).sum())
-    scores = torch.stack(scores, dim=0).sum() # torch.Size([50])
+    scores = torch.stack(scores, dim=0).sum().item() # torch.Size([50])
+    scores = [scores]
     # Offload all models
     is_member, feat_map = infer(scores=scores, metadata=metadata)
 
@@ -578,6 +584,7 @@ def run_pfami(
     device = "cuda"
     generator = None
     scheduler = SecMIDDIMScheduler.from_config(scheduler.config)
+    scheduler.set_timesteps(num_inference_steps, device)
     attack_timesteps = [torch.tensor(attack_timestep).to(device=device) for attack_timestep in attack_timesteps]
 
     # get [x_201, x_181, ..., x_1]
@@ -595,7 +602,7 @@ def run_pfami(
         denoising_results = []
         unit_t = attack_timesteps[0] - attack_timesteps[1]
         # print(unit_t, timesteps)
-        with progress_bar(total=num_inference_steps) as progress_bar:
+        with progress_bar(total=num_inference_steps) as bar:
             for i, t in enumerate(attack_timesteps):
                 noise = posterior_results[i]
                 t = t + unit_t
@@ -620,7 +627,7 @@ def run_pfami(
 
             # call the callback, if provided
             if i == len(attack_timesteps) - 1 or ((i + 1) % scheduler.order == 0):
-                progress_bar.update()
+                bar.update()
 
         # [len(attack_timesteps) x [B, 4, 64, 64]]
         perturb_losses_strength = []
@@ -642,7 +649,7 @@ def run_pfami(
     ori_losses = ori_losses.unsqueeze(dim=0).repeat(len(perturb_losses),1, 1) # [M, T, 1]
     delta_prob = (ori_losses - perturb_losses) / (ori_losses + eps) # [M, T, 1]
     delta_prob = delta_prob.mean(dim=0) # [T, 1]
-    delta_prob_sum = delta_prob.sum()   # []
+    delta_prob_sum = delta_prob.sum().item()   # []
 
     # compute score
     scores = [delta_prob_sum]
