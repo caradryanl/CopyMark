@@ -14,7 +14,7 @@ import pickle
 from sklearn.linear_model import SGDClassifier
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.neural_network import MLPClassifier
-from xgboost import XGBClassifier
+from xgboost import XGBClassifier, XGBRegressor
 
 import matplotlib.pyplot as plt
 from sklearn.manifold import TSNE
@@ -59,11 +59,11 @@ def preprocess(member, non_member, min=None, max=None):
 def train_model(x, y):
     
     # xgb = SGDClassifier()
-    model = XGBClassifier(n_estimators=200)
+    # model = XGBClassifier(n_estimators=200)
     # model = RandomForestRegressor(n_estimators=200, random_state=42)
     # model = MLPClassifier(solver='lbfgs',
     #                 hidden_layer_sizes=(400, 200, 100, 50), random_state=42)
-    # model = XGBRegressor(n_estimators=200, max_depth=2)
+    model = XGBRegressor(n_estimators=50, max_depth=2)
     model.fit(x, y)
 
     def get_batches(X, y, batch_size):
@@ -137,6 +137,12 @@ def main(args):
     # test the trained xgboost
     x_test, y_test, _, _ = preprocess(member_features_test, nonmember_features_test, x_min, x_max)
     member_scores, nonmember_scores = test_model(model, x_test, y_test)
+    print(member_scores.max(), nonmember_scores.max())
+
+    with open(f'experiments/{args.model_type}/gsa_{args.gsa_mode}/gsa_{args.gsa_mode}_{args.model_type}_member_scores_all_steps.pth', 'wb') as f:
+        torch.save(member_scores, f)
+    with open(f'experiments/{args.model_type}/gsa_{args.gsa_mode}/gsa_{args.gsa_mode}_{args.model_type}_nonmember_scores_all_steps.pth', 'wb') as f:
+        torch.save(nonmember_scores, f)
 
     TP = (member_scores <= 0.5).sum()
     TN = (nonmember_scores > 0.5).sum()
@@ -178,7 +184,7 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=10)
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--output', type=str, default='../custom_nodes/assets/')
-    parser.add_argument('--gsa-mode', type=int, default=2, choices=[1, 2])
+    parser.add_argument('--gsa-mode', type=int, default=1, choices=[1, 2])
     parser.add_argument('--model-type', type=str, choices=['sd', 'sdxl', 'ldm', 'kohaku'], default='sd')
     args = parser.parse_args()
 
