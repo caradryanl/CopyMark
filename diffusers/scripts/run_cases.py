@@ -19,8 +19,8 @@ from sklearn import preprocessing
 from xgboost import XGBClassifier, XGBRegressor
 
 
-from stable_copyright import GSALatentDiffusionPipeline, SecMIDDIMScheduler, GSAStableDiffusionPipeline, GSAStableDiffusionXLPipeline
-from stable_copyright import load_dataset, benchmark, test
+from copymark import GSALatentDiffusionPipeline, SecMIDDIMScheduler, GSAStableDiffusionPipeline, GSAStableDiffusionXLPipeline
+from copymark import load_dataset, benchmark, test
 
 
 def load_pipeline(ckpt_path, device='cuda:0', model_type='sd'):

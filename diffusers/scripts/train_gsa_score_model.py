@@ -23,7 +23,7 @@ from sklearn.manifold import TSNE
 
 from sklearn import preprocessing
 
-from stable_copyright import load_dataset, benchmark, test
+from copymark import load_dataset, benchmark, test
 
 def normalize(array, min=None, max=None):
     eps = 1e-5

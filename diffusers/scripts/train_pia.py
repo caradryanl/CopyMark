@@ -9,8 +9,8 @@ import os
 import argparse
 import json,time
 
-from stable_copyright import PIAStableDiffusionPipeline, SecMIDDIMScheduler, PIALatentDiffusionPipeline, PIAStableDiffusionXLPipeline
-from stable_copyright import load_dataset, benchmark, test
+from copymark import PIAStableDiffusionPipeline, SecMIDDIMScheduler, PIALatentDiffusionPipeline, PIAStableDiffusionXLPipeline
+from copymark import load_dataset, benchmark, test
 
 
 def load_pipeline(ckpt_path, device='cuda:0', model_type='sd'):

@@ -12,8 +12,8 @@ import argparse
 from copy import deepcopy
 import time, json
 
-from stable_copyright import PFAMIStableDiffusionPipeline, SecMIDDIMScheduler, PFAMILatentDiffusionPipeline, PFAMIStableDiffusionXLPipeline
-from stable_copyright import load_dataset, benchmark, test
+from copymark import PFAMIStableDiffusionPipeline, SecMIDDIMScheduler, PFAMILatentDiffusionPipeline, PFAMIStableDiffusionXLPipeline
+from copymark import load_dataset, benchmark, test
 
 def image_perturbation(image, strength, image_size=512):
     perturbation = transforms.Compose([
