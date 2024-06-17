@@ -55,9 +55,9 @@ We include three models for our benchmark: [Latent Diffusion Models (Celeba-HQ-2
 
 Basically, the benchmark results consist of two parts: results on evaluation datasets (with appendix `eval` in the directory name) and results on test datasets (with appendix `test` in the directory name). Check our paper for the difference between these two parts. To reproduce these results:
 
-- First, run baselines on evaluation datasets to get the first part of results as well as the files that contain the thresholds calculated on the evaluation datasets (**threshold files**). 
+- First, run baselines on evaluation datasets to get the first part of results as well as **result files** that include the thresholds calculated on the evaluation datasets. 
 
-- Second, moving the thresholds to `experiments` directory because we need to test these thresholds on test datasets. 
+- Second, moving the result files to `experiments` directory because we need to test these thresholds on test datasets. 
 
 - Third, run baselines on test datasets to get the second part of results.
 
@@ -71,9 +71,25 @@ Run the following commands:
     scripts/exp_sdxl_eval.sh
 ```
 
+The result files will be placed in `outputs` directory, denoted by the name of the method and the model. Generally, the result files include:
+
+```
+    {method}_{model}_score_result.json      # main results, auc + tpr + thresholds
+    {method}_{model}_image_log.json         # image filenames in the evaluation sequence
+    {method}_{model}_running_time.json      # running time of the method on the model
+    {method}_{model}_member_scores.pth      # scores of member data, used to visualizing score distributions
+    {method}_{model}_nonmember_scores.pth   # scores of non-member data, used to visualizing score distributions
+```
+
+Specifically, for GSA we do not have member scores and non-member scores directly. Instead, we have the features (gradient norm) of member data and non-member data.
+
+```
+    {method}_{model}_features.npy      # features of member data & non-member data, used to visualizing score distributions
+```
+
 ### Part 2: Results on test datasets
 
-First, move threshold files in the `outputs` directory to their corresponding subfolders in`experiments` directory. Make sure that `experiments` keep the following structure:
+First, move the result files in the `outputs` directory to their corresponding subfolders in`experiments` directory. Make sure that `experiments` keep the following structure:
 ```
 ─diffusers                                     
 │   └───experiments   
@@ -106,12 +122,15 @@ Run the following commands:
     scripts/exp_sdxl_test.sh
 ```
 
+The result files will be also placed in `outputs` directory in a format similar to **Part 2**.
+
 ## Step 3: Score Distributions
 
 After getting the thresholds by running baselins on evaluation datasets, score distributions can be visualized. To reproduce the result in the paper, run the following command:
 ```
     python utils/score_distribution.py
 ```
+The visualization results will be show directly.
 
 ## Step 4: Case Studies
 
@@ -119,3 +138,4 @@ With the threshold files of GSA1 and GSA2 on Stable Diffusion v1.5, we can detec
 ```
     python scripts/run_case_studies.py
 ```
+The visualization results will be show directly.
