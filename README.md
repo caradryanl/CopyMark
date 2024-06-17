@@ -1,6 +1,6 @@
 CopyMark
 ===================
-PyTorch implementation of ``Standardized benchmark for Copyright Detection of Diffusion Models based on diffusers and ComfyUI``.
+PyTorch implementation of **CopyMark: A Standardized Benchmark for Copyright Detection of Diffusion Models** based on diffusers and ComfyUI.
 
 CopyMark provides:
 
@@ -35,6 +35,6 @@ CopyMark
 │   ... (the same as comfyui)
 ```
 
-**For reproducing experimental results in the paper:** Check README.md in `diffusers` directory.
+**Reproducing Results:** Check README.md in `diffusers` directory.
 
-**For detecting copyright data on diffusion models:** Check README.md in `ui` directory.
+**Using CopyMark Utility:** Check README.md in `ui` directory.
