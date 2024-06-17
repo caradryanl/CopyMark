@@ -2,6 +2,7 @@ outputs/*
 !experiments/
 datasets/*
 !datasets/placeholder.txt
+models/*
+!models/placeholder.txt
 
-stable_copyright/.ipynb_checkpoints/
 scripts/.ipynb_checkpoints/
