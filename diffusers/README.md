@@ -8,7 +8,7 @@ We provide complete scripts to reproduce the experiment results in our paper, wh
 
 - Case studies (Section 4.4)
 
-All hyperparameters are set as the experimental setup in our paper. To reproduce the results, one needs to first install the environment and download datasets and models, both of which are available on Huggingface. Then, follow our guidelines to run the scripts.
+All hyperparameters are set as the experimental setup in our paper. To reproduce the results, one needs to firstly install the environment and download datasets and models, both of which are available on Huggingface. Then, follow our guidelines to run the scripts.
 
 ## Step 1: Preparation
 
@@ -29,8 +29,8 @@ Prepare the environment, datasets, and models for the benchmark.
 All datasets are available on [huggingface](https://huggingface.co/datasets/CaradryanLiang/CopyMark). Download the `datasets.zip` to `datasets/` and unzip it. There are in total 10 datasets. Make sure the `datasets` directory has the following structure:
 
 ```
-─diffusers           # benchmark on diffusers
-│   └───datasets        # data: put the datasets here
+─diffusers           
+│   └───datasets       
 │           └───celeba-hq-2-5k-eval
 │           └───celeba-hq-2-5k-test
 │           └───coco2017-val-2-5k-eval

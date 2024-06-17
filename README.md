@@ -8,13 +8,15 @@ CopyMark provides:
 
 - A GUI for using the benchmark to detect copyright images in the training data of diffusion models
 
-**Guidance:**
+Quick Guide
+------------------
 
 - **Reproducing Results:** Check [README.md](diffusers/) in `diffusers` directory.
 
 - **Using CopyMark Utility:** Check [README.md](ui/) in `ui` directory.
 
-
+Code Structure
+------------------
 The code is organized as follows:
 
 ```
