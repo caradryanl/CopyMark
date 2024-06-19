@@ -26,7 +26,7 @@ Prepare the environment, datasets, and models for the benchmark.
 
 ### Datasets
 
-All datasets are available on [huggingface](https://huggingface.co/datasets/CaradryanLiang/CopyMark). Download the `datasets.zip` to `datasets/` and unzip it. There are in total 10 datasets. Make sure the `datasets` directory has the following structure:
+All datasets are available on [huggingface](https://huggingface.co/datasets/CaradryanLiang/copymark). Download the `datasets.zip` to `datasets/` and unzip it. There are in total 10 datasets. Make sure the `datasets` directory has the following structure:
 
 ```
 ─diffusers           
