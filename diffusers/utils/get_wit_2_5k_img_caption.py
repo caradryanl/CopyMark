@@ -20,7 +20,7 @@ from io import BytesIO
 def download_image(url, idx, dir):
     # Fetch the image content using requests
     try:
-        response = requests.get(url, timeout = 5)
+        response = requests.get(url, timeout = 25)
         if response.status_code == 200:
             # Create an image object with PIL from the raw content
             
