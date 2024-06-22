@@ -60,32 +60,29 @@ def main(args):
     
     sampled_df = df.sample(n=num_images*3, random_state=42)
 
-    caption, flag = {}, False
+    caption, flag, failure = {}, False, []
     for idx in range(num_images * 2):
-        # print(df.iloc[0, 0]['bytes'])
-        # image_bytes = base64.b64decode(df.iloc[0, 0]['bytes'])
-        image_bytes = sampled_df.iloc[idx, 2]
-        image = Image.open(BytesIO(image_bytes))
-        image = image.convert('RGB')  # Ensure it's in RGB mode for saving as JPEG
 
-        dir = target + 'eval/' + f'{idx}.png' if flag == False else target + 'test/' + f'{idx}.png'
-        image.save(dir, 'PNG')
-
-        caption[idx] = {
-            'path': f'{idx}.png',
-            'caption': [sampled_df.iloc[idx, 1]],
-            'width': sampled_df.iloc[idx, 2],
-            'height': sampled_df.iloc[idx, 3]
-        }
-        if len(caption) >= num_images and flag == False:
-            flag = True
-            with open(target + 'caption_eval.json', 'w') as file:
-                json.dump(caption, file, indent=4)
-            caption = {}
-        elif len(caption) >= num_images:
-            with open(target + 'caption_test.json', 'w') as file:
-                json.dump(caption, file, indent=4)
-            break
+        dir = target + 'eval/' if flag == False else  target + 'test/'
+        success, size = download_image(url=sampled_df.iloc[idx, 0], idx=idx, dir=dir)
+        if not success:
+            failure.append(idx)
+        else:
+            caption[idx] = {
+                'path': f'{idx}.png',
+                'caption': [sampled_df.iloc[idx, 1]],
+                'width': int(sampled_df.iloc[idx, 2]),
+                'height': int(sampled_df.iloc[idx, 3])
+            }
+            if len(caption) >= num_images and flag == False:
+                flag = True
+                with open(target + 'caption_eval.json', 'w') as file:
+                    json.dump(caption, file, indent=4)
+                caption = {}
+            elif len(caption) >= num_images:
+                with open(target + 'caption_test.json', 'w') as file:
+                    json.dump(caption, file, indent=4)
+                break
 
 
 if __name__ == '__main__':
