@@ -91,7 +91,7 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--num-images", type=int, default=10000)
-    parser.add_argument("--dataset", type=str, default="datasets/laion-aesthetic-info/")
+    parser.add_argument("--dataset", type=str, default="datasets/laion-aesthetic/")
     parser.add_argument("--target", type=str, default="datasets/laion-aesthetic/")
     args = parser.parse_args()
     main(args)
