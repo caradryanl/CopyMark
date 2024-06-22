@@ -64,7 +64,7 @@ def main(args):
     for idx in range(num_images * 2):
 
         dir = target + 'eval/' if flag == False else  target + 'test/'
-        success, size = download_image(url=sampled_df.iloc[idx, 0], idx=idx, dir=dir)
+        success = download_image(url=sampled_df.iloc[idx, 0], idx=idx, dir=dir)
         if not success:
             failure.append(idx)
         else:
