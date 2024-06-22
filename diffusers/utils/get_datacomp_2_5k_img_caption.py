@@ -64,7 +64,7 @@ def main(args):
     sampled_df = df.sample(n=num_images*3, random_state=42)
 
     caption, flag, failure = {}, False, []
-    for idx in range(num_images * 2):
+    for idx in range(num_images * 3):
         # print(df.iloc[0, 0]['bytes'])
         # image_bytes = base64.b64decode(df.iloc[0, 0]['bytes'])
         dir = target + 'eval/' if flag == False else  target + 'test/'
