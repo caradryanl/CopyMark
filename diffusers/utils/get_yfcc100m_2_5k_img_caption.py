@@ -8,7 +8,14 @@ from PIL import Image
 from io import BytesIO
 import base64
 
-
+# https://huggingface.co/datasets/dalle-mini/YFCC100M_OpenAI_subset
+'''
+    https://huggingface.co/datasets/dalle-mini/YFCC100M_OpenAI_subset/resolve/refs%2Fconvert%2Fparquet/default/partial-validation/0000.parquet?download=true
+    https://huggingface.co/datasets/dalle-mini/YFCC100M_OpenAI_subset/resolve/refs%2Fconvert%2Fparquet/default/partial-validation/0001.parquet?download=true
+    https://huggingface.co/datasets/dalle-mini/YFCC100M_OpenAI_subset/resolve/refs%2Fconvert%2Fparquet/default/partial-validation/0002.parquet?download=true
+    https://huggingface.co/datasets/dalle-mini/YFCC100M_OpenAI_subset/resolve/refs%2Fconvert%2Fparquet/default/partial-validation/0003.parquet?download=true
+    https://huggingface.co/datasets/dalle-mini/YFCC100M_OpenAI_subset/resolve/refs%2Fconvert%2Fparquet/default/partial-validation/0004.parquet?download=true
+'''
 
 def main(args):
     dataset = args.dataset
@@ -26,8 +33,8 @@ def main(args):
     print(df.head())
     # print(type(df.iloc[0, 2]))
 
-    os.makedirs(target + 'train/', exist_ok=True)
-    os.makedirs(target + 'val/', exist_ok=True)
+    os.makedirs(target + 'eval/', exist_ok=True)
+    os.makedirs(target + 'test/', exist_ok=True)
     
     sampled_df = df.sample(n=num_images*3, random_state=42)
 
@@ -40,22 +47,22 @@ def main(args):
         image = Image.open(BytesIO(image_bytes))
         image = image.convert('RGB')  # Ensure it's in RGB mode for saving as JPEG
 
-        dir = target + 'train/' + sampled_df.iloc[idx, 3] + '.png' if flag == False else target + 'val/' + sampled_df.iloc[idx, 3] + '.png'
+        dir = target + 'eval/' + sampled_df.iloc[idx, 3] + '.png' if flag == False else target + 'test/' + sampled_df.iloc[idx, 3] + '.png'
         image.save(dir, 'PNG')
 
         caption[idx] = {
-            "path": sampled_df.iloc[idx, 3],
+            "path": sampled_df.iloc[idx, 3] + '.png',
             "height": image.size[1],
             "width": image.size[0],
             "caption": ['']
         }
         if len(caption) >= num_images and flag == False:
             flag = True
-            with open(target + 'caption_train.json', 'w') as file:
+            with open(target + 'caption_eval.json', 'w') as file:
                 json.dump(caption, file, indent=4)
             caption = {}
         elif len(caption) >= num_images:
-            with open(target + 'caption_val.json', 'w') as file:
+            with open(target + 'caption_test.json', 'w') as file:
                 json.dump(caption, file, indent=4)
             break
 

@@ -18,6 +18,8 @@ import requests
 from PIL import Image
 from io import BytesIO
 
+# https://storage.googleapis.com/conceptual_12m/cc12m.tsv
+
 def download_image(url, idx, dir):
     # Fetch the image content using requests
     try:
@@ -28,8 +30,8 @@ def download_image(url, idx, dir):
                 img = Image.open(BytesIO(response.content))
                 img = img.convert('RGB')  # Ensure it's in RGB mode for saving as JPEG
                 width, height = img.size
-                img.save(dir+'{}.jpg'.format(idx), 'JPEG')
-                print('Image downloaded and saved as {}.jpg'.format(idx))
+                img.save(dir+'{}.png'.format(idx), 'PNG')
+                print('Image downloaded and saved as {}.png'.format(idx))
                 return True, (width, height)
         else:
             print('Failed to download the image index {}'.format(idx))
@@ -47,29 +49,30 @@ def main(args):
 
     sampled_df = df.sample(n=num_images*50, random_state=42)
 
-    os.makedirs(target + 'train/', exist_ok=True)
-    os.makedirs(target + 'val/', exist_ok=True)
+    os.makedirs(target + 'eval/', exist_ok=True)
+    os.makedirs(target + 'test/', exist_ok=True)
 
     failure, caption, flag = [], {}, False
     for idx in range(num_images*50):
         # print(df.iloc[0, 0], type(df.iloc[0, 0]), df.iloc[0, 1], type(df.iloc[0, 1]))
-        dir = target + 'train/' if flag == False else  target + 'val/'
+        dir = target + 'eval/' if flag == False else  target + 'test/'
         success, size = download_image(url=sampled_df.iloc[idx, 0], idx=idx, dir=dir)
         if not success:
             failure.append(idx)
         else:
             caption[idx] = {
-                'text': sampled_df.iloc[idx, 1],
+                'path':'{}.png'.format(idx),
+                'caption': [sampled_df.iloc[idx, 1]],
                 'width': size[0],
                 'height': size[1]
             }
             if len(caption) >= num_images and flag == False:
                 flag = True
-                with open(target + 'caption_train.json', 'w') as file:
+                with open(target + 'caption_eval.json', 'w') as file:
                     json.dump(caption, file, indent=4)
                 caption = {}
             elif len(caption) >= num_images:
-                with open(target + 'caption_val.json', 'w') as file:
+                with open(target + 'caption_test.json', 'w') as file:
                     json.dump(caption, file, indent=4)
                 break
 
