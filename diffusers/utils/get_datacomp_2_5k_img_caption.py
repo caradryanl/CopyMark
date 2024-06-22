@@ -68,7 +68,7 @@ def main(args):
         # print(df.iloc[0, 0]['bytes'])
         # image_bytes = base64.b64decode(df.iloc[0, 0]['bytes'])
         dir = target + 'eval/' if flag == False else  target + 'test/'
-        success, size = download_image(url=sampled_df.iloc[idx, 1], path=sampled_df.iloc[idx, 0] + '.png', dir=dir)
+        success = download_image(url=sampled_df.iloc[idx, 1], path=sampled_df.iloc[idx, 0] + '.png', dir=dir)
         if not success:
             failure.append(idx)
         else:
