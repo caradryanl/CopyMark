@@ -17,8 +17,8 @@ def main(args):
         if '{}.jpg'.format(idx) in os.listdir(target + 'images/'):
             caption[idx] = {
                 'path':f'{idx}.jpg',
-                'height': df.iloc[idx, 3],
-                'width': df.iloc[idx, 2],
+                'height': int(df.iloc[idx, 3]),
+                'width': int(df.iloc[idx, 2]),
                 'caption': [df.iloc[idx, 1]],
             }
             print(f'add caption for {idx}.jpg')
