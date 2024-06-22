@@ -54,7 +54,7 @@ def main(args):
             "path": sampled_df.iloc[idx, 3] + '.png',
             "height": image.size[1],
             "width": image.size[0],
-            "caption": ['']
+            "caption": [sampled_df.iloc[idx, 1]]
         }
         if len(caption) >= num_images and flag == False:
             flag = True
