@@ -1,1 +1,1 @@
-python scripts/train_laion_ridar.py --ckpt-path models/stable-diffusion-v1-5/  --member-dataset laion-aesthetic/eval --holdout-dataset cc12m/eval yfcc100m/eval datacomp/eval coco2017-val/eval --batch-size 1
+python scripts/train_laion_ridar.py --ckpt-path models/stable-diffusion-v1-5/  --member-dataset laion-aesthetic/eval --holdout-dataset cc12m/eval yfcc100m/eval datacomp/eval coco2017-val/eval --batch-size 2
