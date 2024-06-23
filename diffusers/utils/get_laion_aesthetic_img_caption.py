@@ -58,10 +58,11 @@ def main(args):
     os.makedirs(target + 'eval/', exist_ok=True)
     os.makedirs(target + 'test/', exist_ok=True)
     
-    sampled_df = df.sample(n=num_images*3, random_state=42)
+    sampled_df = df.sample(n=num_images*5, random_state=42)
+    del df
 
     caption, flag, failure = {}, False, []
-    for idx in range(num_images * 2):
+    for idx in range(num_images * 5):
 
         dir = target + 'eval/' if flag == False else  target + 'test/'
         success = download_image(url=sampled_df.iloc[idx, 0], idx=idx, dir=dir)
