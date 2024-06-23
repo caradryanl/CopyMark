@@ -206,7 +206,7 @@ if __name__ == '__main__':
     parser.add_argument('--holdout-dataset', nargs='+', default=['cc12m/eval', 'yfcc100m/eval', 'datacomp/eval', 'coco2017-val/eval'])
     parser.add_argument('--dataset-root', default='datasets/', type=str)
     parser.add_argument('--seed', type=int, default=10)
-    parser.add_argument('--ckpt-path', type=str, default='models/diffusers/stable-diffusion-v1-5/')
+    parser.add_argument('--ckpt-path', type=str, default='models/stable-diffusion-v1-5/')
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--output', type=str, default='outputs/')
     parser.add_argument('--batch-size', type=int, default=1)
