@@ -10,8 +10,24 @@ We provide two approaches to install CopyMark UI:
 
 First, follow the [installation guideline of ComfyUI](https://github.com/comfyanonymous/ComfyUI?tab=readme-ov-file#installing) to install ComfyUI.
 
+Second, cover `custom_nodes/` with files in the `custom_nodes/` in this repository.
+
+Third, create a new directory `diffusers` under the folder `models/`. Put model checkpoints under `diffusers`. 
+
+
 ## 2: Build from scratch
+
+Clone this repository and run the following command in the root:
+
+```
+    pip install -r requirements.txt
+```
+
 
 Examples
 ----------------
-Here, we show two 
+Here, we show two examples of copyright detection, SecMI and GSA, as follows. 
+
+![SecMI](../assets/webui_1.png)
+
+![GSA](../assets/webui_2.png)
