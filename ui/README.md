@@ -23,11 +23,21 @@ Clone this repository and run the following command in the root:
     pip install -r requirements.txt
 ```
 
+Booting
+----------------
+
+```
+    python main.py 
+```
+
+We provide metadata for Stable Diffusion v1.5 in `custom_nodes/assets/`.
+
 
 Examples
 ----------------
 Here, we show two examples of copyright detection, SecMI and GSA, as follows. 
 
-![SecMI](../assets/webui_1.png)
+![SecMI](../assets/webui_2.png)
 
-![GSA](../assets/webui_2.png)
+![GSA](../assets/webui_1.png)
+
