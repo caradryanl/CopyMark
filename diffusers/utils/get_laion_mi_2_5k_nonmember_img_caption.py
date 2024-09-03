@@ -71,7 +71,7 @@ def main(args):
             elif len(caption) >= num_images:
                 with open(target_test + 'caption_test.json', 'w') as file:
                     json.dump(caption, file, indent=4)
-                with open(target_eval + 'failure_test.json', 'w') as file:
+                with open(target_test + 'failure_test.json', 'w') as file:
                     json.dump(failure, file, indent=4)
                 break
     
