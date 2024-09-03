@@ -49,13 +49,14 @@ def main(args):
     caption, failure = {}, []
     test_flag = False
     for idx in sequence:
+        idx = int(idx)
         dir = target_eval + 'images/' if test_flag == False else target_test + 'images/'
-        success = download_image(url=df.iloc[idx, 0], idx=df.iloc[idx, 2], dir=dir)
+        success = download_image(url=df.iloc[idx, 0], idx=int(df.iloc[idx, 2]), dir=dir)
         if not success:
             failure.append(idx)
         else:
             caption[idx] = {
-                'path': f'{df.iloc[idx, 2]}.png',
+                'path': f'{int(df.iloc[idx, 2])}.png',
                 'caption': [df.iloc[idx, 1]],
                 'width': 1024,
                 'height': 1024

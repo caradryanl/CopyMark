@@ -49,6 +49,7 @@ def main(args):
     caption, failure = {}, []
     test_flag = False
     for idx in sequence:
+        idx = int(idx)
         dir = target_eval + 'images/' if test_flag == False else target_test + 'images/'
         success = download_image(url=df.iloc[idx, 0], idx=idx, dir=dir)
         if not success:
