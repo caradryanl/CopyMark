@@ -4,6 +4,9 @@ sys.path.append('.')
 import tqdm
 import torch
 from torchvision import transforms
+from PIL import PngImagePlugin
+LARGE_ENOUGH_NUMBER = 100
+PngImagePlugin.MAX_TEXT_CHUNK = LARGE_ENOUGH_NUMBER * (1024**2)
 
 import numpy as np
 import random
@@ -23,7 +26,7 @@ def image_perturbation(image, strength, image_size=512):
     return perturbation(image)
 
 def load_pipeline(ckpt_path, device='cuda:0', model_type='sd'):
-    if model_type == 'sd':
+    if model_type == 'sd' or model_type == 'laion_mi':
         pipe = PFAMIStableDiffusionPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
         pipe.scheduler = SecMIDDIMScheduler.from_config(pipe.scheduler.config)
         pipe = pipe.to(device)
@@ -205,7 +208,7 @@ if __name__ == '__main__':
     parser.add_argument('--perturbation-number', type=int, default=10)
     parser.add_argument('--start-strength', type=float, default=0.95)
     parser.add_argument('--end-strength', type=float, default=0.7)
-    parser.add_argument('--model-type', type=str, choices=['sd', 'sdxl', 'ldm', 'kohaku'], default='sd')
+    parser.add_argument('--model-type', type=str, choices=['sd', 'sdxl', 'ldm', 'kohaku', 'laion_mi'], default='sd')
     parser.add_argument('--demo', type=bool, default=False)
     parser.add_argument('--eval', type=bool, default=False)
     parser.add_argument('--threshold-root', type=str, default='experiments/')
