@@ -262,7 +262,7 @@ if __name__ == '__main__':
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--output', type=str, default='outputs/')
     parser.add_argument('--batch-size', type=int, default=1)
-    parser.add_argument('--gsa-mode', type=int, default=1, choices=[1, 2])
+    parser.add_argument('--gsa-mode', type=int, default=2, choices=[1, 2])
     parser.add_argument('--model-type', type=str, choices=['sd', 'sdxl', 'ldm', 'kohaku'], default='sd')
     parser.add_argument('--demo', type=bool, default=False)
     parser.add_argument('--eval', type=bool, default=False)

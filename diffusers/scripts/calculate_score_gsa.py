@@ -184,8 +184,8 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=10)
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--output', type=str, default='../ui/custom_nodes/assets/')
-    parser.add_argument('--gsa-mode', type=int, default=1, choices=[1, 2])
-    parser.add_argument('--model-type', type=str, choices=['sd', 'sdxl', 'ldm', 'kohaku'], default='sd')
+    parser.add_argument('--gsa-mode', type=int, default=2, choices=[1, 2])
+    parser.add_argument('--model-type', type=str, choices=['sd', 'sdxl', 'ldm', 'kohaku', 'laion_mi'], default='laion_mi')
     args = parser.parse_args()
 
     fix_seed(args.seed)
