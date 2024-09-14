@@ -63,13 +63,13 @@ def main(args):
             }
             if len(caption) >= num_images and test_flag == False:
                 test_flag = True
-                with open(target_eval + 'caption_eval.json', 'w') as file:
+                with open(target_eval + 'caption.json', 'w') as file:
                     json.dump(caption, file, indent=4)
                 with open(target_eval + 'failure_eval.json', 'w') as file:
                     json.dump(failure, file, indent=4)
                 caption, failure = {}, []
             elif len(caption) >= num_images:
-                with open(target_test + 'caption_test.json', 'w') as file:
+                with open(target_test + 'caption.json', 'w') as file:
                     json.dump(caption, file, indent=4)
                 with open(target_test + 'failure_test.json', 'w') as file:
                     json.dump(failure, file, indent=4)
