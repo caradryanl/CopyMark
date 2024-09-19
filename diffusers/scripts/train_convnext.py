@@ -39,8 +39,8 @@ class CustomImageDataset(Dataset):
                 # Instead of img.verify(), we'll attempt to load the image data
                 img.load()
             return True
-        except (IOError, OSError, Image.DecompressionBombError) as e:
-            print(f"Skipping invalid image: {img_path}. Error: {str(e)}")
+        except:
+            print(f"Skipping invalid image: {img_path}.")
             return False
 
     def __len__(self):
