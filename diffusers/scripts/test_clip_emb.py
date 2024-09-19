@@ -117,7 +117,7 @@ def visualize_embeddings_3d(p, embeddings, labels, class_names, folder_names, fo
     print(f"True Negative (TN): {tn}")
     print(f"False Negative (FN): {fn}")
 
-    ax.legend(fontsize=18, markerscale=5, loc='lower left')
+    ax.legend(fontsize=20, markerscale=5, loc='lower left')
     for axis in [ax.xaxis, ax.yaxis, ax.zaxis]:
         axis.set_major_locator(plt.MaxNLocator(4))
     
@@ -126,18 +126,18 @@ def visualize_embeddings_3d(p, embeddings, labels, class_names, folder_names, fo
 def create_multiple_visualizations(all_embeddings_list, all_labels_list, all_classes_list, all_folders_list, folder_labels_list, output_path, title):
     plt.rcParams.update({'font.size': 16})  # Slightly reduced font size
     
-    fig = plt.figure(figsize=(25, 5.5))  # Increased height slightly to accommodate the title
+    fig = plt.figure(figsize=(25, 6))  # Increased height slightly to accommodate the title
     
     for i in range(5):
         ax = fig.add_subplot(1, 5, i+1, projection='3d')
         visualize_embeddings_3d(i, all_embeddings_list[i], all_labels_list[i], all_classes_list[i], all_folders_list[i], folder_labels_list[i], ax)
 
         subplot_label = string.ascii_lowercase[i]
-        ax.text2D(0.5, -0.1, f'({subplot_label})', transform=ax.transAxes, fontsize=20, fontweight='bold')
+        ax.text2D(0.5, -0.1, f'({subplot_label})', transform=ax.transAxes, fontsize=24, fontweight='bold')
     
     plt.tight_layout(pad=0.5, h_pad=0.5, w_pad=0.5)  # Reduced padding
     plt.subplots_adjust(top=0.92, bottom=0.16)  # Adjusted top margin to make room for the title
-    fig.suptitle(title, fontsize=24, y=0.97)  # Add the overall title
+    fig.suptitle(title, fontsize=27, y=0.97)  # Add the overall title
     plt.savefig(output_path, dpi=300, bbox_inches='tight')  # Use tight bounding box
     plt.close(fig)
     print(f"Visualization saved to {output_path}")

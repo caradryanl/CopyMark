@@ -182,9 +182,9 @@ def load_model(path):
 
 def plot_roc_curve(train_fpr, train_tpr, train_roc_auc, eval_fpr, eval_tpr, eval_roc_auc, train_folder1, train_folder2, eval_folder1, eval_folder2, output_path):
     plt.figure(figsize=(8, 6))
-    plt.plot(train_fpr, train_tpr, color='gold', lw=4, label=f'Val: AUC = {train_roc_auc:.4f}')
-    plt.plot(eval_fpr, eval_tpr, color='green', lw=4, label=f'Test: AUC = {eval_roc_auc:.4f}')
-    plt.plot([0, 1], [0, 1], color='navy', lw=4, linestyle='--')
+    plt.plot(train_fpr, train_tpr, color='yellowgreen', lw=4, label=f'Val: AUC = {train_roc_auc:.4f}')
+    plt.plot(eval_fpr, eval_tpr, color='salmon', lw=4, label=f'Test: AUC = {eval_roc_auc:.4f}')
+    plt.plot([0, 1], [0, 1], color='gray', lw=4, linestyle='--')
     plt.xlim([0.0, 1.0])
     plt.ylim([0.0, 1.05])
     plt.xlabel('FPR', fontsize=20)
@@ -193,16 +193,17 @@ def plot_roc_curve(train_fpr, train_tpr, train_roc_auc, eval_fpr, eval_tpr, eval
 
     title = f"{os.path.basename(train_folder1)[:-5]} vs {os.path.basename(train_folder2)[:-5]}"
     wrapped_title = "\n".join(textwrap.wrap(title, width=60))
-    plt.title(wrapped_title, fontsize=22, fontweight='bold')
+    plt.title(wrapped_title, fontsize=21, fontweight='bold')
 
 
     plt.tick_params(axis='both', which='major', labelsize=18, width=2, length=6)
     plt.xticks(np.arange(0, 1.1, 0.2))
     plt.yticks(np.arange(0, 1.1, 0.2))
-    plt.grid(which='major', linestyle='--', linewidth=0.5, color='grey', alpha=0.7)
+    plt.grid(which='major', linestyle='--', linewidth=0.5, color='lightgray', alpha=0.7)
 
-    plt.savefig(output_path, dpi=300, bbox_inches='tight')
+    plt.savefig(output_path, dpi=300)
     plt.close()
+
 
 def main(input, train_folder1, train_folder2, eval_folders, num_epochs, batch_size, learning_rate, output_path, model_path, load_saved_model):
     # Load training data
