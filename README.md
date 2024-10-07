@@ -1,6 +1,6 @@
 CopyMark
 ===================
-PyTorch implementation of **CopyMark: A Standardized Benchmark for Copyright Detection of Diffusion Models** based on diffusers and ComfyUI.
+PyTorch implementation of **Real-World Benchmarks Make Membership Inference Attacks Fail on Diffusion Models** based on diffusers and ComfyUI.
 
 CopyMark provides:
 
