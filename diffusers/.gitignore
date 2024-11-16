@@ -6,3 +6,4 @@ models/*
 !models/placeholder.txt
 
 scripts/.ipynb_checkpoints/
+*.pth

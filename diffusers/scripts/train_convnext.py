@@ -187,20 +187,26 @@ def plot_roc_curve(train_fpr, train_tpr, train_roc_auc, eval_fpr, eval_tpr, eval
     plt.plot([0, 1], [0, 1], color='gray', lw=4, linestyle='--')
     plt.xlim([0.0, 1.0])
     plt.ylim([0.0, 1.05])
-    plt.xlabel('FPR', fontsize=20)
-    plt.ylabel('TPR', fontsize=20)
-    plt.legend(loc="lower right", fontsize=20)
+    plt.xlabel('FPR', fontsize=24)
+    plt.ylabel('TPR', fontsize=24)
+    plt.legend(loc="lower right", fontsize=26)
 
-    title = f"{os.path.basename(train_folder1)[:-5]} vs {os.path.basename(train_folder2)[:-5]}"
+    if 'hakubooru' in train_folder1:
+        title = "hakubooru: member vs non-member"
+    elif 'laion-mi' in train_folder1:
+        title = "laion-mi: member vs non-member"
+    else:
+        title = f"{os.path.basename(train_folder1)[:-5]} vs {os.path.basename(train_folder2)[:-5]}"
     wrapped_title = "\n".join(textwrap.wrap(title, width=60))
-    plt.title(wrapped_title, fontsize=21, fontweight='bold')
+    plt.title(wrapped_title, fontsize=26, fontweight='bold')
 
 
-    plt.tick_params(axis='both', which='major', labelsize=18, width=2, length=6)
+    plt.tick_params(axis='both', which='major', labelsize=22, width=2, length=6)
     plt.xticks(np.arange(0, 1.1, 0.2))
     plt.yticks(np.arange(0, 1.1, 0.2))
     plt.grid(which='major', linestyle='--', linewidth=0.5, color='lightgray', alpha=0.7)
 
+    plt.subplots_adjust(top=0.90, bottom=0.16)  # Adjusted top margin to make room for the title
     plt.savefig(output_path, dpi=300)
     plt.close()
 
