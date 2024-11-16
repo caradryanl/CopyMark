@@ -1,9 +1,9 @@
 # by ComfyUI
-torch==2.1.0
+torch==2.2.0
 torchsde
 torchvision==0.16.0
 einops
-transformers==4.26.0
+transformers==4.38.0
 safetensors>=0.3.0
 aiohttp
 pyyaml
