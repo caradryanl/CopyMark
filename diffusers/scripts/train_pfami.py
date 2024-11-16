@@ -26,7 +26,7 @@ def image_perturbation(image, strength, image_size=512):
     return perturbation(image)
 
 def load_pipeline(ckpt_path, device='cuda:0', model_type='sd'):
-    if model_type == 'sd' or model_type == 'laion_mi':
+    if model_type == 'sd' or 'laion' in model_type:
         pipe = PFAMIStableDiffusionPipeline.from_pretrained(ckpt_path, torch_dtype=torch.float32)
         pipe.scheduler = SecMIDDIMScheduler.from_config(pipe.scheduler.config)
         pipe = pipe.to(device)

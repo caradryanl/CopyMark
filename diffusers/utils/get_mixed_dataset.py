@@ -114,7 +114,7 @@ def main():
     selected_a2_25, selected_b2_75 = create_combined_dataset(
         args.a2, args.b2,
         a2_images, b2_images, 0.25, 0.75,
-        os.path.join(args.output_dir, f"{args.a2}_25_{args.b2}_75"),
+        os.path.join(args.output_dir, f"{args.a2}-25-{args.b2}-75"),
         a2_captions, b2_captions
     )
     
@@ -122,7 +122,7 @@ def main():
     selected_a2_50, selected_b2_50 = create_combined_dataset(
         args.a2, args.b2,
         a2_images, b2_images, 0.50, 0.50,
-        os.path.join(args.output_dir, f"{args.a2}_50_{args.b2}_50"),
+        os.path.join(args.output_dir, f"{args.a2}-50-{args.b2}-50"),
         a2_captions, b2_captions,
         selected_a2_25, selected_b2_75
     )
@@ -131,7 +131,7 @@ def main():
     create_combined_dataset(
         args.a2, args.b2,
         a2_images, b2_images, 0.75, 0.25,
-        os.path.join(args.output_dir, f"{args.a2}_75_{args.b2}_25"),
+        os.path.join(args.output_dir, f"{args.a2}-75-{args.b2}-25"),
         a2_captions, b2_captions,
         selected_a2_50, selected_b2_50
     )
