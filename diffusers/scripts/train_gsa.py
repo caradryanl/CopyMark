@@ -247,7 +247,7 @@ if __name__ == '__main__':
     parser.add_argument('--batch-size', type=int, default=1)
     parser.add_argument('--use-ddp', type=bool, default=False)
     parser.add_argument('--gsa-mode', type=int, default=1, choices=[1, 2])
-    parser.add_argument('--model-type', type=str, choices=['sd', 'sdxl', 'ldm', 'kohaku', 'laion_mi'], default='sd')
+    parser.add_argument('--model-type', type=str, default='sd')
     parser.add_argument('--demo', type=bool, default=False)
     parser.add_argument('--eval', type=bool, default=False)
     parser.add_argument('--threshold-root', type=str, default='experiments/')
