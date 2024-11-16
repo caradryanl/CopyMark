@@ -1,0 +1,148 @@
+Processing images: 100%|█████████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [01:21<00:00,  2.04s/it]
+/home/caradryan/programs/anaconda3/envs/sd-copyright/lib/python3.10/site-packages/ot/lp/__init__.py:630: UserWarning: numItermax reached before optimality. Try to increase numItermax.
+  check_result(result_code)
+Wasserstein distance (celeba-hq-eval vs ffhq-eval): 0.7512
+
+Computing Wasserstein distance between laion-aesthetic-eval and coco2017-eval
+Processing images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [01:22<00:00,  2.07s/it]
+Processing images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [01:22<00:00,  2.07s/it]
+Wasserstein distance (laion-aesthetic-eval vs coco2017-eval): 0.8225
+
+Computing Wasserstein distance between laion-mi-member-eval and laion-mi-nonmember-eval
+Processing images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [01:21<00:00,  2.03s/it]
+Processing images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [01:23<00:00,  2.08s/it]
+Wasserstein distance (laion-mi-member-eval vs laion-mi-nonmember-eval): 0.7117
+
+Computing Wasserstein distance between commoncatalog-eval and coco2017-eval
+Processing images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [01:23<00:00,  2.09s/it]
+Processing images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [01:26<00:00,  2.16s/it]
+Wasserstein distance (commoncatalog-eval vs coco2017-eval): 0.6541
+
+Computing Wasserstein distance between hakubooru-member-eval and hakubooru-nonmember-eval
+Processing images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [01:21<00:00,  2.03s/it]
+Processing images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [01:25<00:00,  2.15s/it]
+Wasserstein distance (hakubooru-member-eval vs hakubooru-nonmember-eval): 0.5226
+
+Computing Wasserstein distance between celeba-hq-test and ffhq-test
+Processing images:  45%|███████████████████████████████████████████████▋                                                          | 18/40 [00:39<00:47,  2.15s/it]Processing images:  45%|███████████████████████████████████████████████▋                                                          | 18/40 [00:41<00:50,  2.29s/it]
+Traceback (most recent call last):
+  File "/home/caradryan/projects/Copyright/stable-copyright/diffusers/scripts/test_w_dist.py", line 99, in <module>
+    main(folder_pairs, args.input)
+  File "/home/caradryan/projects/Copyright/stable-copyright/diffusers/scripts/test_w_dist.py", line 81, in main
+    embeddings1 = get_embeddings(dataloader1, model, processor)
+  File "/home/caradryan/projects/Copyright/stable-copyright/diffusers/scripts/test_w_dist.py", line 48, in get_embeddings
+    image_embeddings = outputs.cpu().numpy()
+KeyboardInterrupt
+^C(sd-copyright) (base) caradryan@caradryan-OMEN-by-HP-Laptop-17-ck1xxx:~/projects/Copyright/stable-copyright/diffusers$ ^C
+(sd-copyright) (base) caradryan@caradryan-OMEN-by-HP-Laptop-17-ck1xxx:~/projects/Copyright/stable-copyright/diffusers$ ^C
+(sd-copyright) (base) caradryan@caradryan-OMEN-by-HP-Laptop-17-ck1xxx:~/projects/Copyright/stable-copyright/diffusers$ scripts/exp_w_dist.sh
+
+Computing distribution shift metrics between celeba-hq-eval and ffhq-eval
+Processing images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [01:20<00:00,  2.00s/it]
+Processing images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [01:22<00:00,  2.06s/it]
+/home/caradryan/programs/anaconda3/envs/sd-copyright/lib/python3.10/site-packages/ot/lp/__init__.py:630: UserWarning: numItermax reached before optimality. Try to increase numItermax.
+  check_result(result_code)
+
+Distribution shift metrics for celeba-hq-eval vs ffhq-eval:
+Fréchet Distance: 0.3243
+Normalized Wasserstein Distance: 5910.8885
+Mahalanobis Distance: 15.4695
+
+Computing distribution shift metrics between laion-aesthetic-eval and coco2017-eval
+Processing images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [01:22<00:00,  2.07s/it]
+Processing images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [01:24<00:00,  2.11s/it]
+/home/caradryan/programs/anaconda3/envs/sd-copyright/lib/python3.10/site-packages/ot/lp/__init__.py:630: UserWarning: numItermax reached before optimality. Try to increase numItermax.
+  check_result(result_code)
+
+Distribution shift metrics for laion-aesthetic-eval vs coco2017-eval:
+Fréchet Distance: 0.2491
+Normalized Wasserstein Distance: 3778.5960
+Mahalanobis Distance: 7.0719
+
+Computing distribution shift metrics between laion-mi-member-eval and laion-mi-nonmember-eval
+Processing images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [01:23<00:00,  2.09s/it]
+Processing images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [01:29<00:00,  2.23s/it]
+/home/caradryan/programs/anaconda3/envs/sd-copyright/lib/python3.10/site-packages/ot/lp/__init__.py:630: UserWarning: numItermax reached before optimality. Try to increase numItermax.
+  check_result(result_code)
+
+Distribution shift metrics for laion-mi-member-eval vs laion-mi-nonmember-eval:
+Fréchet Distance: 0.0594
+Normalized Wasserstein Distance: 1973.7655
+Mahalanobis Distance: 1.3936
+
+Computing distribution shift metrics between commoncatalog-eval and coco2017-eval
+Processing images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [01:25<00:00,  2.13s/it]
+Processing images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [01:29<00:00,  2.24s/it]
+/home/caradryan/programs/anaconda3/envs/sd-copyright/lib/python3.10/site-packages/ot/lp/__init__.py:630: UserWarning: numItermax reached before optimality. Try to increase numItermax.
+  check_result(result_code)
+
+Distribution shift metrics for commoncatalog-eval vs coco2017-eval:
+Fréchet Distance: 0.1263
+Normalized Wasserstein Distance: 3627.9794
+Mahalanobis Distance: 5.0407
+
+Computing distribution shift metrics between hakubooru-member-eval and hakubooru-nonmember-eval
+Processing images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [01:21<00:00,  2.05s/it]
+Processing images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [01:28<00:00,  2.20s/it]
+/home/caradryan/programs/anaconda3/envs/sd-copyright/lib/python3.10/site-packages/ot/lp/__init__.py:630: UserWarning: numItermax reached before optimality. Try to increase numItermax.
+  check_result(result_code)
+
+Distribution shift metrics for hakubooru-member-eval vs hakubooru-nonmember-eval:
+Fréchet Distance: 0.0367
+Normalized Wasserstein Distance: 3304.7273
+Mahalanobis Distance: 1.2551
+
+Computing distribution shift metrics between celeba-hq-test and ffhq-test
+Processing images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [01:29<00:00,  2.23s/it]
+Processing images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [01:27<00:00,  2.20s/it]
+/home/caradryan/programs/anaconda3/envs/sd-copyright/lib/python3.10/site-packages/ot/lp/__init__.py:630: UserWarning: numItermax reached before optimality. Try to increase numItermax.
+  check_result(result_code)
+
+Distribution shift metrics for celeba-hq-test vs ffhq-test:
+Fréchet Distance: 0.3328
+Normalized Wasserstein Distance: 6375.6101
+Mahalanobis Distance: 16.8846
+
+Computing distribution shift metrics between laion-aesthetic-test and coco2017-test
+Processing images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [01:23<00:00,  2.10s/it]
+Processing images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [01:25<00:00,  2.13s/it]
+/home/caradryan/programs/anaconda3/envs/sd-copyright/lib/python3.10/site-packages/ot/lp/__init__.py:630: UserWarning: numItermax reached before optimality. Try to increase numItermax.
+  check_result(result_code)
+
+Distribution shift metrics for laion-aesthetic-test vs coco2017-test:
+Fréchet Distance: 0.2478
+Normalized Wasserstein Distance: 3646.8494
+Mahalanobis Distance: 7.1051
+
+Computing distribution shift metrics between laion-mi-member-test and laion-mi-nonmember-test
+Processing images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [01:22<00:00,  2.07s/it]
+Processing images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [01:28<00:00,  2.21s/it]
+/home/caradryan/programs/anaconda3/envs/sd-copyright/lib/python3.10/site-packages/ot/lp/__init__.py:630: UserWarning: numItermax reached before optimality. Try to increase numItermax.
+  check_result(result_code)
+
+Distribution shift metrics for laion-mi-member-test vs laion-mi-nonmember-test:
+Fréchet Distance: 0.0594
+Normalized Wasserstein Distance: 2021.7494
+Mahalanobis Distance: 1.5003
+
+Computing distribution shift metrics between commoncatalog-test and coco2017-test
+Processing images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [01:25<00:00,  2.14s/it]
+Processing images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [01:29<00:00,  2.24s/it]
+/home/caradryan/programs/anaconda3/envs/sd-copyright/lib/python3.10/site-packages/ot/lp/__init__.py:630: UserWarning: numItermax reached before optimality. Try to increase numItermax.
+  check_result(result_code)
+
+Distribution shift metrics for commoncatalog-test vs coco2017-test:
+Fréchet Distance: 0.1208
+Normalized Wasserstein Distance: 3527.6448
+Mahalanobis Distance: 5.0257
+
+Computing distribution shift metrics between hakubooru-member-test and hakubooru-nonmember-test
+Processing images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [01:22<00:00,  2.05s/it]
+Processing images: 100%|██████████████████████████████████████████████████████████████████████████████████████████████████████████| 40/40 [01:25<00:00,  2.14s/it]
+/home/caradryan/programs/anaconda3/envs/sd-copyright/lib/python3.10/site-packages/ot/lp/__init__.py:630: UserWarning: numItermax reached before optimality. Try to increase numItermax.
+  check_result(result_code)
+
+Distribution shift metrics for hakubooru-member-test vs hakubooru-nonmember-test:
+Fréchet Distance: 0.0355
+Normalized Wasserstein Distance: 3597.9893
+Mahalanobis Distance: 1.2316

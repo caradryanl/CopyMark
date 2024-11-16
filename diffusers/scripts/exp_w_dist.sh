@@ -1,0 +1,2 @@
+python scripts/test_w_dist.py celeba-hq-eval ffhq-eval laion-aesthetic-eval coco2017-eval laion-mi-member-eval laion-mi-nonmember-eval commoncatalog-eval coco2017-eval hakubooru-member-eval hakubooru-nonmember-eval
+python scripts/test_w_dist.py celeba-hq-test ffhq-test laion-aesthetic-test coco2017-test laion-mi-member-test laion-mi-nonmember-test commoncatalog-test coco2017-test hakubooru-member-test hakubooru-nonmember-test
