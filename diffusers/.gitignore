@@ -7,3 +7,4 @@ models/*
 
 scripts/.ipynb_checkpoints/
 *.pth
+*.zip
