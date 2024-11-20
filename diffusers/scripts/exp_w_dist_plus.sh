@@ -1,0 +1,1 @@
+python scripts/test_w_dist.py laion-aesthetic-eval coco2017-eval laion-aesthetic-eval coco2017-eval-25-laion-mi-nonmember-eval-75 laion-aesthetic-eval coco2017-eval-50-laion-mi-nonmember-eval-50 laion-aesthetic-eval coco2017-eval-75-laion-mi-nonmember-eval-25
