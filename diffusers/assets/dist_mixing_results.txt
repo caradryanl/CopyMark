@@ -1,0 +1,34 @@
+(1)
+shifted data proportion | Fréchet Distance
+0 0.1259
+0.25 0.1330
+0.50 0.1495
+0.75 0.2051
+1.00 0.2491
+
+(2)
+TPR @ 1%FPR
+shifted data proportion | SecMI | PIA
+0
+0.25
+0.50
+0.75
+1.00 0.2888 0.3120
+
+(3)
+TPR @ 0.1%FPR
+shifted data proportion | SecMI | PIA
+0
+0.25
+0.50
+0.75
+1.00 0.1364 0.1776
+
+(4)
+AUC
+shifted data proportion | SecMI | PIA
+0
+0.25
+0.50
+0.75
+1.00 0.6991 0.7617

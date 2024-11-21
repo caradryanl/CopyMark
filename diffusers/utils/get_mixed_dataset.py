@@ -68,9 +68,9 @@ def create_combined_dataset(a2, b2, a2_images, b2_images, a2_percentage, b2_perc
         shutil.copy2(img, f"{dataset_name}/images/{new_img_name}")
         captions[f"{a2}_{base_name}"] = {
             "path": new_img_name,
-            "caption": a2_captions[base_name]["caption"],
-            "width": a2_captions[base_name]["width"],
-            "height": a2_captions[base_name]["height"]
+            "caption": None,
+            "width": None,
+            "height": None
         }
     
     # Process B2 images with prefix
@@ -81,9 +81,9 @@ def create_combined_dataset(a2, b2, a2_images, b2_images, a2_percentage, b2_perc
         shutil.copy2(img, f"{dataset_name}/images/{new_img_name}")
         captions[f"{b2}_{base_name}"] = {
             "path": new_img_name,
-            "caption": b2_captions[base_name]["caption"],
-            "width": b2_captions[base_name]["width"],
-            "height": b2_captions[base_name]["height"]
+            "caption": None,
+            "width": None,
+            "height": None
         }
     
     # Save caption.json
@@ -113,9 +113,12 @@ def main():
     with open(os.path.join(b2_path, "caption.json"), 'r') as f:
         b2_captions = json.load(f)
     
-    # Get list of images
-    a2_images = [os.path.join(a2_images_path, f) for f in os.listdir(a2_images_path) if f.endswith('.png')]
-    b2_images = [os.path.join(b2_images_path, f) for f in os.listdir(b2_images_path) if f.endswith('.png')]
+    # Get list of images, supporting both PNG and JPEG formats
+    valid_extensions = ('.png', '.jpg', '.jpeg')
+    a2_images = [os.path.join(a2_images_path, f) for f in os.listdir(a2_images_path) 
+                 if f.lower().endswith(valid_extensions)]
+    b2_images = [os.path.join(b2_images_path, f) for f in os.listdir(b2_images_path) 
+                 if f.lower().endswith(valid_extensions)]
     
     # Create output directory
     os.makedirs(args.output_dir, exist_ok=True)
