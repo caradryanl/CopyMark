@@ -4,6 +4,8 @@ import shutil
 import random
 import argparse
 
+random.seed(1453)
+
 def create_combined_dataset(a2, b2, a2_images, b2_images, a2_percentage, b2_percentage, dataset_name, 
                           a2_captions, b2_captions, previous_a2=None, previous_b2=None):
     """
@@ -36,11 +38,20 @@ def create_combined_dataset(a2, b2, a2_images, b2_images, a2_percentage, b2_perc
         remaining_a2 = list(set(a2_images) - set(selected_a2))
         additional_a2 = random.sample(remaining_a2, num_a2 - len(selected_a2))
         selected_a2.extend(additional_a2)
+    elif previous_a2 is not None:
+        selected_a2 = random.sample(previous_a2, num_a2)
+    else:
+        selected_a2 = random.sample(a2_images, num_a2)
+
     
     if len(selected_b2) < num_b2:
         remaining_b2 = list(set(b2_images) - set(selected_b2))
         additional_b2 = random.sample(remaining_b2, num_b2 - len(selected_b2))
         selected_b2.extend(additional_b2)
+    elif previous_b2 is not None:
+        selected_b2 = random.sample(b2_images, num_b2)
+    else:
+        selected_b2 = random.sample(a2_images, num_a2)
     
     # Create dataset directory structure
     os.makedirs(f"{dataset_name}", exist_ok=True)
