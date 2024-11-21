@@ -68,9 +68,9 @@ def create_combined_dataset(a2, b2, a2_images, b2_images, a2_percentage, b2_perc
         shutil.copy2(img, f"{dataset_name}/images/{new_img_name}")
         captions[f"{a2}_{base_name}"] = {
             "path": new_img_name,
-            "caption": None,
-            "width": None,
-            "height": None
+            "caption": "",
+            "width": 512,
+            "height": 512
         }
     
     # Process B2 images with prefix
@@ -81,9 +81,9 @@ def create_combined_dataset(a2, b2, a2_images, b2_images, a2_percentage, b2_perc
         shutil.copy2(img, f"{dataset_name}/images/{new_img_name}")
         captions[f"{b2}_{base_name}"] = {
             "path": new_img_name,
-            "caption": None,
-            "width": None,
-            "height": None
+            "caption": "",
+            "width": 512,
+            "height": 512
         }
     
     # Save caption.json
