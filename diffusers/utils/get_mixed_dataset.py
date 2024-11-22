@@ -64,9 +64,9 @@ def create_combined_dataset(a2, b2, a2_images, b2_images, a2_percentage, b2_perc
     for img in selected_a2:
         img_name = os.path.basename(img)
         base_name, ext = os.path.splitext(img_name)
-        new_img_name = f"{a2}_{base_name}{ext}"
+        new_img_name = f"{a2}-{base_name}{ext}"
         shutil.copy2(img, f"{dataset_name}/images/{new_img_name}")
-        captions[f"{a2}_{base_name}"] = {
+        captions[f"{a2}-{base_name}"] = {
             "path": new_img_name,
             "caption": [],
             "width": 512,
@@ -77,11 +77,11 @@ def create_combined_dataset(a2, b2, a2_images, b2_images, a2_percentage, b2_perc
     for img in selected_b2:
         img_name = os.path.basename(img)
         base_name, ext = os.path.splitext(img_name)
-        new_img_name = f"{b2}_{base_name}{ext}"
+        new_img_name = f"{b2}-{base_name}{ext}"
         shutil.copy2(img, f"{dataset_name}/images/{new_img_name}")
-        captions[f"{b2}_{base_name}"] = {
+        captions[f"{b2}-{base_name}"] = {
             "path": new_img_name,
-            "caption": "",
+            "caption": [],
             "width": 512,
             "height": 512
         }
