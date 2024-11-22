@@ -3,8 +3,13 @@ import json
 import shutil
 import random
 import argparse
+import re
 
 random.seed(1453)
+
+def sanitize_filename(name):
+    """Sanitize filename by replacing invalid characters with underscores"""
+    return re.sub(r'[^a-zA-Z0-9_.]', '_', name)
 
 def create_combined_dataset(a2, b2, a2_images, b2_images, a2_percentage, b2_percentage, dataset_name, 
                           a2_captions, b2_captions, previous_a2=None, previous_b2=None):
@@ -60,26 +65,29 @@ def create_combined_dataset(a2, b2, a2_images, b2_images, a2_percentage, b2_perc
     # Copy images and create caption dictionary
     captions = {}
     
-    # Process A2 images with prefix
     for img in selected_a2:
         img_name = os.path.basename(img)
         base_name, ext = os.path.splitext(img_name)
-        new_img_name = f"{a2}-{base_name}{ext}"
+        safe_a2 = sanitize_filename(a2)
+        safe_base = sanitize_filename(base_name)
+        new_img_name = f"{safe_a2}_{safe_base}{ext}"
         shutil.copy2(img, f"{dataset_name}/images/{new_img_name}")
-        captions[f"{a2}-{base_name}"] = {
+        captions[f"{safe_a2}_{safe_base}"] = {
             "path": new_img_name,
             "caption": [],
             "width": 512,
             "height": 512
         }
     
-    # Process B2 images with prefix
+    # Process B2 images with sanitized prefix
     for img in selected_b2:
         img_name = os.path.basename(img)
         base_name, ext = os.path.splitext(img_name)
-        new_img_name = f"{b2}-{base_name}{ext}"
+        safe_b2 = sanitize_filename(b2)
+        safe_base = sanitize_filename(base_name)
+        new_img_name = f"{safe_b2}_{safe_base}{ext}"
         shutil.copy2(img, f"{dataset_name}/images/{new_img_name}")
-        captions[f"{b2}-{base_name}"] = {
+        captions[f"{safe_b2}_{safe_base}"] = {
             "path": new_img_name,
             "caption": [],
             "width": 512,
@@ -100,6 +108,9 @@ def main():
     parser.add_argument('--a2', required=True, help='Base name for the combined datasets')
     parser.add_argument('--b2', required=True, help='Base name for the combined datasets')
     args = parser.parse_args()
+
+    safe_a2 = sanitize_filename(args.a2)
+    safe_b2 = sanitize_filename(args.b2)
 
     # Define paths using arguments
     a2_path = os.path.join(args.input_dir, f"{args.a2}")
@@ -128,24 +139,22 @@ def main():
     selected_a2_25, selected_b2_75 = create_combined_dataset(
         args.a2, args.b2,
         a2_images, b2_images, 0.25, 0.75,
-        os.path.join(args.output_dir, f"{args.a2}-25-{args.b2}-75"),
+        os.path.join(args.output_dir, f"{safe_a2}_25_{safe_b2}_75"),
         a2_captions, b2_captions
     )
     
-    # Create 50% A2 + 50% B2, including all previous selections
     selected_a2_50, selected_b2_50 = create_combined_dataset(
         args.a2, args.b2,
         a2_images, b2_images, 0.50, 0.50,
-        os.path.join(args.output_dir, f"{args.a2}-50-{args.b2}-50"),
+        os.path.join(args.output_dir, f"{safe_a2}_50_{safe_b2}_50"),
         a2_captions, b2_captions,
         selected_a2_25, selected_b2_75
     )
     
-    # Create 75% A2 + 25% B2, including all previous selections
     create_combined_dataset(
         args.a2, args.b2,
         a2_images, b2_images, 0.75, 0.25,
-        os.path.join(args.output_dir, f"{args.a2}-75-{args.b2}-25"),
+        os.path.join(args.output_dir, f"{safe_a2}_75_{safe_b2}_25"),
         a2_captions, b2_captions,
         selected_a2_50, selected_b2_50
     )
