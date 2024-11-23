@@ -70,11 +70,11 @@ def create_combined_dataset(a2, b2, a2_images, b2_images, a2_percentage, b2_perc
         base_name, ext = os.path.splitext(img_name)
         safe_a2 = sanitize_filename(a2)
         safe_base = sanitize_filename(base_name)
-        new_img_name = f"{safe_a2}_{safe_base}{ext}"
+        new_img_name = f"{safe_base}{ext}"
         shutil.copy2(img, f"{dataset_name}/images/{new_img_name}")
-        captions[f"{safe_a2}_{safe_base}"] = {
+        captions[f"{safe_base}"] = {
             "path": new_img_name,
-            "caption": [],
+            "caption": [""],
             "width": 512,
             "height": 512
         }
@@ -85,11 +85,11 @@ def create_combined_dataset(a2, b2, a2_images, b2_images, a2_percentage, b2_perc
         base_name, ext = os.path.splitext(img_name)
         safe_b2 = sanitize_filename(b2)
         safe_base = sanitize_filename(base_name)
-        new_img_name = f"{safe_b2}_{safe_base}{ext}"
+        new_img_name = f"{safe_base}{ext}"
         shutil.copy2(img, f"{dataset_name}/images/{new_img_name}")
-        captions[f"{safe_b2}_{safe_base}"] = {
+        captions[f"{safe_base}"] = {
             "path": new_img_name,
-            "caption": [],
+            "caption": [""],
             "width": 512,
             "height": 512
         }

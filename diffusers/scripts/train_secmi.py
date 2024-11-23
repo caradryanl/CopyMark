@@ -98,8 +98,9 @@ def main(args):
         if not os.path.exists(args.output):
             os.mkdir(args.output)
 
-        member_scores_50th_step, member_scores_all_steps, member_path_log = get_reverse_denoise_results(pipe, member_loader, args.device, args.demo)
         nonmember_scores_50th_step, nonmember_scores_all_steps, nonmember_path_log = get_reverse_denoise_results(pipe, holdout_loader, args.device, args.demo)
+        member_scores_50th_step, member_scores_all_steps, member_path_log = get_reverse_denoise_results(pipe, member_loader, args.device, args.demo)
+        
         member_corr_scores, nonmember_corr_scores = compute_corr_score(member_scores_all_steps, nonmember_scores_all_steps)
         
         if not args.eval:

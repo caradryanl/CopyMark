@@ -41,6 +41,7 @@ class SecMIStableDiffusionPipeline(
 ):
     @torch.no_grad()
     def prepare_inputs(self, batch, weight_dtype, device):
+        
         pixel_values, input_ids = batch["pixel_values"].to(weight_dtype), batch["input_ids"]
         if device == 'cuda':
             pixel_values, input_ids = pixel_values.cuda(), input_ids.cuda()
