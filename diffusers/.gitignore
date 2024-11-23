@@ -5,6 +5,8 @@ datasets/*
 models/*
 !models/placeholder.txt
 
+copymark/.ipynb_checkpoints/
+
 scripts/.ipynb_checkpoints/
 *.pth
 *.zip
