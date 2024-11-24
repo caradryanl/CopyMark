@@ -5,8 +5,10 @@ datasets/*
 models/*
 !models/placeholder.txt
 
+copymark/__pycache__/
 copymark/.ipynb_checkpoints/
 
 scripts/.ipynb_checkpoints/
+utils/.ipynb_checkpoints/
 *.pth
 *.zip
