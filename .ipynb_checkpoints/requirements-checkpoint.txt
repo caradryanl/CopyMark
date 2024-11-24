@@ -1,0 +1,50 @@
+# by ComfyUI
+torch==2.1.0
+torchsde
+torchvision==0.16.0
+einops
+transformers==4.26.0
+safetensors>=0.3.0
+aiohttp
+pyyaml
+Pillow
+scipy
+tqdm
+psutil
+kornia>=0.7.1
+--extra-index-url https://download.pytorch.org/whl/cu118
+
+# by diffusers
+diffusers
+accelerate
+xformers
+
+# by secmi: https://github.com/jinhaoduan/SecMI-LDM
+omegaconf
+matplotlib
+scikit-learn
+
+# by drc:
+opencv-python
+scikit-image
+
+# by hakubooru
+peewee
+webdataset
+python-dateutil
+pytorch_lightning
+hakubooru
+
+# by gsa
+xgboost
+
+#non essential dependencies:
+kornia>=0.7.1
+spandrel
+
+# by copymark ui
+seaborn
+
+# ot
+POT
+
